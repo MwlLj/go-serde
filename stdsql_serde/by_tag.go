@@ -32,7 +32,18 @@ func assign(rows *sql.Rows, value reflect.Value, t reflect.Type) error {
     for _, colName := range colNames {
         if field, ok := names[colName]; ok {
             fk := field.Kind()
-            fmt.Println(colName, fk)
+            if fk == reflect.Ptr {
+                /*
+                ** 指针
+                */
+                fieldType := field.Type()
+                fieldPtrType := fieldType.Elem()
+                fk = fieldPtrType.Kind()
+            } else {
+                /*
+                ** 不是指针 => 直接使用fk
+                */
+            }
             if fk == reflect.String {
                 var v sql.NullString
                 cols = append(cols, &v)
@@ -49,11 +60,35 @@ func assign(rows *sql.Rows, value reflect.Value, t reflect.Type) error {
         n := cns[i]
         if field, ok := names[n]; ok {
             fk := field.Kind()
-            if fk == reflect.String {
-                fmt.Println(v.(*sql.NullString).String)
-                field.SetString(v.(*sql.NullString).String)
-            } else if fk == reflect.Int {
-                field.SetInt(v.(*sql.NullInt64).Int64)
+            if fk == reflect.Ptr {
+                fieldType := field.Type()
+                fieldValue := reflect.New(fieldType)
+                fieldPtrType := fieldType.Elem()
+                fieldPtrValue := reflect.New(fieldPtrType)
+                fieldPtrValueElem := fieldPtrValue.Elem()
+                k := fieldPtrType.Kind()
+                if k == reflect.String {
+                    va := v.(*sql.NullString)
+                    if va.Valid {
+                        fieldPtrValueElem.SetString(va.String)
+                    }
+                } else if k == reflect.Int {
+                    va := v.(*sql.NullInt64)
+                    if va.Valid {
+                        fieldPtrValueElem.SetInt(va.Int64)
+                    }
+                }
+                fieldValue.Elem().Set(fieldPtrValue)
+                field.Set(fieldValue.Elem())
+            } else {
+                /*
+                ** 不是指针
+                */
+                if fk == reflect.String {
+                    field.SetString(v.(*sql.NullString).String)
+                } else if fk == reflect.Int {
+                    field.SetInt(v.(*sql.NullInt64).Int64)
+                }
             }
         }
     }
@@ -297,7 +332,7 @@ func output(rows *sql.Rows, out interface{}) error {
 type CUserInfo struct {
     Age int `field:"age"`
     Name string `field:"name"`
-    Sex string `field:"sex"`
+    Sex *string `field:"sex"`
 }
 
 func main() {
@@ -335,7 +370,11 @@ func main() {
     user := []*CUserInfo{}
     output(rows, &user)
     for _, u := range user {
-        fmt.Println(u)
+        if u.Sex != nil {
+            fmt.Println(u.Age, u.Name, *u.Sex)
+        } else {
+            fmt.Println(u.Age, u.Name)
+        }
     }
     /*
     user1 := CUserInfo{}
