@@ -11,6 +11,11 @@ import (
     _ "github.com/go-sql-driver/mysql"
 )
 
+type Tag struct {
+    value reflect.Value
+    t string
+}
+
 func assign(rows *sql.Rows, value reflect.Value, t reflect.Type) error {
     num := value.NumField()
     cols := []interface{}{}
