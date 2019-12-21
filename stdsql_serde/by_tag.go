@@ -8,7 +8,7 @@ import (
     "fmt"
     "database/sql"
     "time"
-   "encoding/json" 
+    "encoding/json" 
     _ "github.com/go-sql-driver/mysql"
 )
 
@@ -60,14 +60,25 @@ func assign(rows *sql.Rows, value reflect.Value, t reflect.Type) error {
                 ** 不是指针 => 直接使用fk
                 */
             }
-            if fk == reflect.String {
+            if fk == reflect.String ||
+                fk == reflect.Struct {
                 var v sql.NullString
                 cols = append(cols, &v)
                 cns = append(cns, colName)
-            } else if fk == reflect.Int {
+            } else if fk == reflect.Int || fk == reflect.Int64 || fk == reflect.Int8 || fk == reflect.Int16 || fk == reflect.Int32 ||
+            fk == reflect.Uint8 || fk == reflect.Uint16 || fk == reflect.Uint32 || fk == reflect.Uint64 || fk == reflect.Uint {
                 var v sql.NullInt64
                 cols = append(cols, &v)
                 cns = append(cns, colName)
+            } else if fk == reflect.Bool {
+                var v sql.NullBool
+                cols = append(cols, &v)
+                cns = append(cns, colName)
+            } else if fk == reflect.Float32 || fk == reflect.Float64 {
+                var v sql.NullFloat64
+                cols = append(cols, &v)
+                cns = append(cns, colName)
+            } else {
             }
         }
     }
@@ -89,10 +100,21 @@ func assign(rows *sql.Rows, value reflect.Value, t reflect.Type) error {
                     if va.Valid {
                         fieldPtrValueElem.SetString(va.String)
                     }
-                } else if k == reflect.Int {
+                } else if k == reflect.Int || k == reflect.Int64 || fk == reflect.Int8 || fk == reflect.Int16 || fk == reflect.Int32 ||
+                fk == reflect.Uint8 || fk == reflect.Uint16 || fk == reflect.Uint32 || fk == reflect.Uint64 || fk == reflect.Uint {
                     va := v.(*sql.NullInt64)
                     if va.Valid {
                         fieldPtrValueElem.SetInt(va.Int64)
+                    }
+                } else if k == reflect.Bool {
+                    va := v.(*sql.NullBool)
+                    if va.Valid {
+                        fieldPtrValueElem.SetBool(va.Bool)
+                    }
+                } else if k == reflect.Float32 || k == reflect.Float64 {
+                    va := v.(*sql.NullFloat64)
+                    if va.Valid {
+                        fieldPtrValueElem.SetFloat(va.Float64)
                     }
                 } else if k == reflect.Struct {
                     /*
@@ -118,6 +140,21 @@ func assign(rows *sql.Rows, value reflect.Value, t reflect.Type) error {
                     field.SetString(v.(*sql.NullString).String)
                 } else if fk == reflect.Int {
                     field.SetInt(v.(*sql.NullInt64).Int64)
+                } else if fk == reflect.Struct {
+                    /*
+                    ** 获取类型, 指定类型序列化
+                    */
+                    va := v.(*sql.NullString)
+                    if va.Valid {
+                        if val.t != nil {
+                            if *val.t == "json" {
+                                fieldValue := reflect.New(field.Type())
+                                json.Unmarshal([]byte(va.String), fieldValue.Interface())
+                                field.Set(fieldValue.Elem())
+                            }
+                        } else {
+                        }
+                    }
                 }
             }
         }
@@ -367,7 +404,7 @@ type CUserInfo struct {
     Age int `field:"age"`
     Name string `field:"name"`
     Sex *string `field:"sex"`
-    Ext Extra `field:"extra"`
+    Ext Extra `field:"extra" type:"json"`
 }
 
 func main() {
