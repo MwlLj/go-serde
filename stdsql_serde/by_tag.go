@@ -8,12 +8,13 @@ import (
     "fmt"
     "database/sql"
     "time"
+   "encoding/json" 
     _ "github.com/go-sql-driver/mysql"
 )
 
 type Tag struct {
-    value reflect.Value
-    t string
+    field reflect.Value
+    t *string
 }
 
 func assign(rows *sql.Rows, value reflect.Value, t reflect.Type) error {
@@ -23,19 +24,29 @@ func assign(rows *sql.Rows, value reflect.Value, t reflect.Type) error {
     if err != nil {
         return err
     }
-    names := map[string]reflect.Value{}
+    names := map[string]Tag{}
     for i := 0; i < num; i++ {
         field := value.Field(i)
-        f := t.Field(i).Tag.Get("field")
+        tag := t.Field(i).Tag
+        f := tag.Get("field")
         if f == "" {
             continue
         }
-        names[f] = field
+        var ty *string = nil
+        typeTag := tag.Get("type")
+        if typeTag != "" {
+            ty =  &typeTag
+        }
+        names[f] = Tag{
+            field: field,
+            t: ty,
+        }
     }
     // fmt.Println(colNames)
     cns := []string{}
     for _, colName := range colNames {
-        if field, ok := names[colName]; ok {
+        if val, ok := names[colName]; ok {
+            field := val.field
             fk := field.Kind()
             if fk == reflect.Ptr {
                 /*
@@ -63,7 +74,8 @@ func assign(rows *sql.Rows, value reflect.Value, t reflect.Type) error {
     rows.Scan(cols...)
     for i, v := range cols {
         n := cns[i]
-        if field, ok := names[n]; ok {
+        if val, ok := names[n]; ok {
+            field := val.field
             fk := field.Kind()
             if fk == reflect.Ptr {
                 fieldType := field.Type()
@@ -81,6 +93,19 @@ func assign(rows *sql.Rows, value reflect.Value, t reflect.Type) error {
                     va := v.(*sql.NullInt64)
                     if va.Valid {
                         fieldPtrValueElem.SetInt(va.Int64)
+                    }
+                } else if k == reflect.Struct {
+                    /*
+                    ** 获取类型, 指定类型序列化
+                    */
+                    va := v.(*sql.NullString)
+                    if va.Valid {
+                        if val.t != nil {
+                            if *val.t == "json" {
+                                json.Unmarshal([]byte(va.String), fieldPtrValueElem.Interface())
+                            }
+                        } else {
+                        }
                     }
                 }
                 fieldValue.Elem().Set(fieldPtrValue)
@@ -334,10 +359,15 @@ func output(rows *sql.Rows, out interface{}) error {
     return nil
 }
 
+type Extra struct {
+    F1 string `json:"f1"`
+}
+
 type CUserInfo struct {
     Age int `field:"age"`
     Name string `field:"name"`
     Sex *string `field:"sex"`
+    Ext Extra `field:"extra"`
 }
 
 func main() {
@@ -376,7 +406,7 @@ func main() {
     output(rows, &user)
     for _, u := range user {
         if u.Sex != nil {
-            fmt.Println(u.Age, u.Name, *u.Sex)
+            fmt.Println(u.Age, u.Name, *u.Sex, u.Ext)
         } else {
             fmt.Println(u.Age, u.Name)
         }
