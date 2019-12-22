@@ -10,18 +10,18 @@ import (
     "testing"
 )
 
-type Extra struct {
+type CByIndexExtra struct {
     F1 string `json:"f1"`
 }
 
-type CUserInfo struct {
-    Age int `field:"age"`
+type CByIndexUserInfo struct {
     Name string `field:"name"`
+    Age int `field:"age"`
     Sex *string `field:"sex"`
-    Ext *Extra `field:"extra" type:"json"`
+    Ext *CByIndexExtra `field:"extra" type:"json"`
 }
 
-func TestByTag(t *testing.T) {
+func TestByIndex(t *testing.T) {
     b := bytes.Buffer{}
     b.WriteString("root")
     b.WriteString(":")
@@ -64,8 +64,10 @@ func TestByTag(t *testing.T) {
         }
     }
     */
-    user := CUserInfo{}
-    ByTag(rows, &user)
+    user := CByIndexUserInfo{}
+    if err = ByIndex(rows, &user); err != nil {
+        fmt.Println(err)
+    }
     fmt.Println(user.Name, user.Age, *user.Sex, *user.Ext)
 
     tx.Commit()

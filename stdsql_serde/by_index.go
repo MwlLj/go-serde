@@ -3,227 +3,139 @@ package stdsql_serde
 import (
     "reflect"
     "errors"
-    "fmt"
     "database/sql"
-    _ "github.com/go-sql-driver/mysql"
+    "encoding/json"
 )
 
-func output(rows *sql.Rows, out interface{}) error {
-    outValuePtr := reflect.ValueOf(out)
-    /*
-    ** 判断是否可以设置
-    */
-    if outValuePtr.Kind() != reflect.Ptr {
-        return errors.New("can not set, please use pointer")
-    }
-    /*
-    ** 取出指针的值
-    */
-    outValue := outValuePtr.Elem()
-    /*
-    ** 判断是否是 slice
-    */
-    if outValue.Kind() == reflect.Slice {
-        fmt.Println("is slice")
-        /*
-        ** 读取每一个行的值, 然后追加到 slice 中
-        */
-        for rows.Next() {
-            /*
-            ** 获取 slice 中的类型
-            */
-            sliceType := outValue.Type().Elem()
-            /*
-            ** 判断sliceType是否是指针
-            */
-            if sliceType.Kind() == reflect.Ptr {
-                fmt.Println("slice type is ptr")
-                /*
-                ** 获取sliceType指针类型中的实体类型
-                */
-                sliceValue := reflect.New(sliceType)
-                sliceValueElem := sliceValue.Elem()
-                slicePtrType := sliceType.Elem()
-                fmt.Printf("slicePtrType: %v\n", slicePtrType.String())
-                /*
-                ** 判断实体类型是否是结构体
-                */
-                if slicePtrType.Kind() == reflect.Struct {
-                    fmt.Println("slicePtrType is struct")
-                    /*
-                    ** 读取多列
-                    ** []*CUserInfo{}
-                    */
-                    slicePtrValue := reflect.New(slicePtrType)
-                    slicePtrValueElem := slicePtrValue.Elem()
-                    num := slicePtrValueElem.NumField()
-                    cols := []interface{}{}
-                    for i := 0; i < num; i++ {
-                        field := slicePtrValueElem.Field(i)
-                        fk := field.Kind()
-                        if fk == reflect.String {
-                            var v sql.NullString
-                            cols = append(cols, &v)
-                        } else if fk == reflect.Int {
-                            var v sql.NullInt64
-                            cols = append(cols, &v)
-                        }
-                    }
-                    rows.Scan(cols...)
-                    colLen := len(cols)
-                    for i := 0; i < num; i++ {
-                        field := slicePtrValueElem.Field(i)
-                        fk := field.Kind()
-                        if i + 1 > colLen {
-                            break
-                        }
-                        v := cols[i]
-                        if fk == reflect.String {
-                            field.SetString(v.(*sql.NullString).String)
-                        } else if fk == reflect.Int {
-                            field.SetInt(v.(*sql.NullInt64).Int64)
-                        }
-                    }
-                    /*
-                    for _, col := range cols {
-                        fmt.Printf("-----%v----- ", col)
-                    }
-                    */
-                    /*
-                    colValues, err := rows.Columns()
-                    if err != nil {
-                        return err
-                    }
-                    colTypes, err := rows.ColumnTypes()
-                    if err != nil {
-                        return nil
-                    }
-                    var _ = colTypes
-                    colLen := len(colValues)
-                    for i := 0; i < num; i++ {
-                        field := slicePtrValueElem.Field(i)
-                        fk := field.Kind()
-                        if i + 1 > colLen {
-                            break
-                        }
-                        v := colValues[i]
-                        if fk == reflect.String {
-                            field.SetString(v)
-                            fmt.Println(v)
-                        } else if fk == reflect.Int {
-                            fmt.Println(v)
-                            iv, err := strconv.ParseInt(v, 10, 64)
-                            if err != nil {
-                                return errors.New(fmt.Sprintf("field: %s is not int", field.Type().Name))
-                            }
-                            field.SetInt(iv)
-                        }
-                    }
-                    */
-                    sliceValueElem.Set(slicePtrValue)
-                    outValue.Set(reflect.Append(outValue, sliceValueElem))
-                } else {
-                    fmt.Println("slicePtrType is not struct")
-                    /*
-                    ** 读取一列
-                    ** []*string
-                    */
-                    slicePtrValue := reflect.New(slicePtrType)
-                    slicePtrValueElem := slicePtrValue.Elem()
-                    fk := slicePtrValueElem.Kind()
-                    if fk == reflect.String {
-                        slicePtrValueElem.SetString("Mike")
-                    } else if fk == reflect.Int {
-                        slicePtrValueElem.SetInt(10)
-                    }
-                    sliceValueElem.Set(slicePtrValue)
-                    outValue.Set(reflect.Append(outValue, sliceValueElem))
-                }
-            } else {
-                fmt.Println("slice type is not ptr")
-                /*
-                ** 判断类型是否是结构体
-                */
-                if sliceType.Kind() == reflect.Struct {
-                    fmt.Println("sliceType is struct")
-                    /*
-                    ** 读取多列
-                    ** []CUserInfo{}
-                    */
-                    sliceValue := reflect.New(sliceType)
-                    sliceValueElem := sliceValue.Elem()
-                    num := sliceValueElem.NumField()
-                    for i := 0; i < num; i++ {
-                        field := sliceValueElem.Field(i)
-                        fk := field.Kind()
-                        if fk == reflect.String {
-                            field.SetString("Lan")
-                        } else if fk == reflect.Int {
-                            field.SetInt(21)
-                        }
-                    }
-                    outValue.Set(reflect.Append(outValue, sliceValueElem))
-                } else {
-                    fmt.Println("sliceType is not struct")
-                    /*
-                    ** 读取一列
-                    ** []string{}
-                    */
-                    sliceValue := reflect.New(sliceType)
-                    sliceValueElem := sliceValue.Elem()
-                    fk := sliceValueElem.Kind()
-                    if fk == reflect.String {
-                        sliceValueElem.SetString("Alis")
-                    } else if fk == reflect.Int {
-                        sliceValueElem.SetInt(10)
-                    }
-                    outValue.Set(reflect.Append(outValue, sliceValueElem))
-                }
-            }
-        }
-    } else {
-        fmt.Println("is not slice")
-        objType := outValue.Type()
-        /*
-        ** 判断类型是否是结构体
-        */
-        if objType.Kind() == reflect.Struct {
-            fmt.Println("objType is struct")
-            /*
-            ** 读取多列
-            */
-            sliceValue := reflect.New(objType)
-            sliceValueElem := sliceValue.Elem()
-            num := sliceValueElem.NumField()
-            for i := 0; i < num; i++ {
-                field := sliceValueElem.Field(i)
-                fk := field.Kind()
-                if fk == reflect.String {
-                    field.SetString("Red")
-                } else if fk == reflect.Int {
-                    field.SetInt(21)
-                }
-            }
-            outValue.Set(sliceValueElem)
+type byIndex struct {
+}
+
+func (*byIndex) assign(rows *sql.Rows, value reflect.Value, t reflect.Type) error {
+    num := value.NumField()
+    cols := []interface{}{}
+    for i := 0; i < num; i++ {
+        field := value.Field(i)
+        fk := field.Kind()
+        if fk == reflect.Ptr {
+            fieldType := field.Type()
+            fieldPtrType := fieldType.Elem()
+            fk = fieldPtrType.Kind()
         } else {
-            fmt.Println("objType is not struct")
-            /*
-            ** 读取一列
-            */
-            sliceValue := reflect.New(objType)
-            sliceValueElem := sliceValue.Elem()
-            fmt.Println(sliceValueElem.Type())
-            fk := sliceValueElem.Kind()
-            if fk == reflect.String {
-                sliceValueElem.SetString("Blue")
-            } else if fk == reflect.Int {
-                sliceValueElem.SetInt(10)
-            }
-            outValue.Set(sliceValueElem)
         }
-        /*
-        ** 只读取一行
-        */
+        if fk == reflect.String || fk == reflect.Struct {
+            var v sql.NullString
+            cols = append(cols, &v)
+        } else if fk == reflect.Int || fk == reflect.Int64 || fk == reflect.Int8 || fk == reflect.Int16 || fk == reflect.Int32 ||
+        fk == reflect.Uint8 || fk == reflect.Uint16 || fk == reflect.Uint32 || fk == reflect.Uint64 || fk == reflect.Uint {
+            var v sql.NullInt64
+            cols = append(cols, &v)
+        } else if fk == reflect.Bool {
+            var v sql.NullBool
+            cols = append(cols, &v)
+        } else if fk == reflect.Float32 || fk == reflect.Float64 {
+            var v sql.NullFloat64
+            cols = append(cols, &v)
+        } else {
+        }
+    }
+    if err := rows.Scan(cols...); err != nil {
+        return err
+    }
+    colLen := len(cols)
+    if colLen != num {
+        return errors.New("cols not match")
+    }
+    for i := 0; i < num; i++ {
+        if i + 1 > colLen {
+            return errors.New("cols not match, check tags")
+        }
+        field := value.Field(i)
+        fk := field.Kind()
+        switch fk {
+        case reflect.Ptr: {
+            fieldType := field.Type()
+            fieldPtrType := fieldType.Elem()
+            fieldPtrValue := reflect.New(fieldPtrType)
+            fieldPtrValueElem := fieldPtrValue.Elem()
+            k := fieldPtrType.Kind()
+            v := cols[i]
+            if k == reflect.String {
+                va := v.(*sql.NullString)
+                if va.Valid {
+                    fieldPtrValueElem.SetString(va.String)
+                }
+            } else if k == reflect.Int || k == reflect.Int64 || k == reflect.Int8 || k == reflect.Int16 || k == reflect.Int32 {
+                va := v.(*sql.NullInt64)
+                if va.Valid {
+                    fieldPtrValueElem.SetInt(va.Int64)
+                }
+            } else if k == reflect.Uint8 || k == reflect.Uint16 || k == reflect.Uint32 || k == reflect.Uint64 || k == reflect.Uint {
+                va := v.(*sql.NullInt64)
+                if va.Valid {
+                    fieldPtrValueElem.SetUint(uint64(va.Int64))
+                }
+            } else if k == reflect.Bool {
+                va := v.(*sql.NullBool)
+                if va.Valid {
+                    fieldPtrValueElem.SetBool(va.Bool)
+                }
+            } else if k == reflect.Float32 || k == reflect.Float64 {
+                va := v.(*sql.NullFloat64)
+                if va.Valid {
+                    fieldPtrValueElem.SetFloat(va.Float64)
+                }
+            } else if k == reflect.Struct {
+                tag := t.Field(i).Tag
+                typeTag := tag.Get(tag_type)
+                va := v.(*sql.NullString)
+                if va.Valid {
+                    if typeTag != "" {
+                        if typeTag == tag_type_json {
+                            fieldValue := reflect.New(fieldPtrType)
+                            json.Unmarshal([]byte(va.String), fieldValue.Interface())
+                            fieldPtrValueElem.Set(fieldValue.Elem())
+                        }
+                    } else {
+                    }
+                }
+            }
+            field.Set(fieldPtrValue)
+        }
+        default: {
+            v := cols[i]
+            if fk == reflect.String {
+                field.SetString(v.(*sql.NullString).String)
+            } else if fk == reflect.Int || fk == reflect.Int64 || fk == reflect.Int8 || fk == reflect.Int16 || fk == reflect.Int32 {
+                field.SetInt(v.(*sql.NullInt64).Int64)
+            } else if fk == reflect.Uint8 || fk == reflect.Uint16 || fk == reflect.Uint32 || fk == reflect.Uint64 || fk == reflect.Uint {
+                field.SetUint(uint64(v.(sql.NullInt64).Int64))
+            } else if fk == reflect.Bool {
+                field.SetBool(v.(*sql.NullBool).Bool)
+            } else if fk == reflect.Float32 || fk == reflect.Float64 {
+                field.SetFloat(v.(*sql.NullFloat64).Float64)
+            } else if fk == reflect.Struct {
+                tag := t.Field(i).Tag
+                typeTag := tag.Get(tag_type)
+                va := v.(*sql.NullString)
+                if va.Valid {
+                    if typeTag != "" {
+                        if typeTag == tag_type_json {
+                            fieldValue := reflect.New(field.Type())
+                            json.Unmarshal([]byte(va.String), fieldValue.Interface())
+                            field.Set(fieldValue.Elem())
+                        }
+                    } else {
+                    }
+                }
+            }
+        }
+        }
     }
     return nil
+}
+
+func ByIndex(rows *sql.Rows, output interface{}) error {
+    ba := newBase(&byIndex{
+    })
+    return ba.output(rows, output)
 }

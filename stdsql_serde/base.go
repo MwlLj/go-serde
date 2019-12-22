@@ -8,6 +8,12 @@ import (
     _ "github.com/go-sql-driver/mysql"
 )
 
+const (
+    tag_field string = "field"
+    tag_type string = "type"
+    tag_type_json string = "json"
+)
+
 type ISet interface {
     assign(rows *sql.Rows, value reflect.Value, t reflect.Type) error
 }

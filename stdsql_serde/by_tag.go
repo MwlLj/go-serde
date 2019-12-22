@@ -6,7 +6,7 @@ import (
     "encoding/json" 
 )
 
-type Tag struct {
+type tagData struct {
     field reflect.Value
     t *string
 }
@@ -21,20 +21,20 @@ func (*byTag) assign(rows *sql.Rows, value reflect.Value, t reflect.Type) error 
     if err != nil {
         return err
     }
-    names := map[string]Tag{}
+    names := map[string]tagData{}
     for i := 0; i < num; i++ {
         field := value.Field(i)
         tag := t.Field(i).Tag
-        f := tag.Get("field")
+        f := tag.Get(tag_field)
         if f == "" {
             continue
         }
         var ty *string = nil
-        typeTag := tag.Get("type")
+        typeTag := tag.Get(tag_type)
         if typeTag != "" {
             ty =  &typeTag
         }
-        names[f] = Tag{
+        names[f] = tagData{
             field: field,
             t: ty,
         }
@@ -79,7 +79,9 @@ func (*byTag) assign(rows *sql.Rows, value reflect.Value, t reflect.Type) error 
             }
         }
     }
-    rows.Scan(cols...)
+    if err = rows.Scan(cols...); err != nil {
+        return err
+    }
     for i, v := range cols {
         n := cns[i]
         if val, ok := names[n]; ok {
@@ -97,11 +99,15 @@ func (*byTag) assign(rows *sql.Rows, value reflect.Value, t reflect.Type) error 
                     if va.Valid {
                         fieldPtrValueElem.SetString(va.String)
                     }
-                } else if k == reflect.Int || k == reflect.Int64 || fk == reflect.Int8 || fk == reflect.Int16 || fk == reflect.Int32 ||
-                fk == reflect.Uint8 || fk == reflect.Uint16 || fk == reflect.Uint32 || fk == reflect.Uint64 || fk == reflect.Uint {
+                } else if k == reflect.Int || k == reflect.Int64 || k == reflect.Int8 || k == reflect.Int16 || k == reflect.Int32 {
                     va := v.(*sql.NullInt64)
                     if va.Valid {
                         fieldPtrValueElem.SetInt(va.Int64)
+                    }
+                } else if k == reflect.Uint8 || k == reflect.Uint16 || k == reflect.Uint32 || k == reflect.Uint64 || k == reflect.Uint {
+                    va := v.(*sql.NullInt64)
+                    if va.Valid {
+                        fieldPtrValueElem.SetUint(uint64(va.Int64))
                     }
                 } else if k == reflect.Bool {
                     va := v.(*sql.NullBool)
@@ -120,8 +126,10 @@ func (*byTag) assign(rows *sql.Rows, value reflect.Value, t reflect.Type) error 
                     va := v.(*sql.NullString)
                     if va.Valid {
                         if val.t != nil {
-                            if *val.t == "json" {
-                                json.Unmarshal([]byte(va.String), fieldPtrValueElem.Interface())
+                            if *val.t == tag_type_json {
+                                fieldValue := reflect.New(fieldPtrType)
+                                json.Unmarshal([]byte(va.String), fieldValue.Interface())
+                                fieldPtrValueElem.Set(fieldValue.Elem())
                             }
                         } else {
                         }
@@ -135,8 +143,14 @@ func (*byTag) assign(rows *sql.Rows, value reflect.Value, t reflect.Type) error 
                 */
                 if fk == reflect.String {
                     field.SetString(v.(*sql.NullString).String)
-                } else if fk == reflect.Int {
+                } else if fk == reflect.Int || fk == reflect.Int64 || fk == reflect.Int8 || fk == reflect.Int16 || fk == reflect.Int32 {
                     field.SetInt(v.(*sql.NullInt64).Int64)
+                } else if fk == reflect.Uint8 || fk == reflect.Uint16 || fk == reflect.Uint32 || fk == reflect.Uint64 || fk == reflect.Uint {
+                    field.SetUint(uint64(v.(*sql.NullInt64).Int64))
+                } else if fk == reflect.Bool {
+                    field.SetBool(v.(*sql.NullBool).Bool)
+                } else if fk == reflect.Float32 || fk == reflect.Float64 {
+                    field.SetFloat(v.(*sql.NullFloat64).Float64)
                 } else if fk == reflect.Struct {
                     /*
                     ** 获取类型, 指定类型序列化
@@ -144,7 +158,7 @@ func (*byTag) assign(rows *sql.Rows, value reflect.Value, t reflect.Type) error 
                     va := v.(*sql.NullString)
                     if va.Valid {
                         if val.t != nil {
-                            if *val.t == "json" {
+                            if *val.t == tag_type_json {
                                 fieldValue := reflect.New(field.Type())
                                 json.Unmarshal([]byte(va.String), fieldValue.Interface())
                                 field.Set(fieldValue.Elem())
@@ -157,4 +171,10 @@ func (*byTag) assign(rows *sql.Rows, value reflect.Value, t reflect.Type) error 
         }
     }
     return nil
+}
+
+func ByTag(rows *sql.Rows, output interface{}) error {
+    ba := newBase(&byTag{
+    })
+    return ba.output(rows, output)
 }
