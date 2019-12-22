@@ -1,18 +1,12 @@
-package main
+package stdsql_serde
 
 import (
     "reflect"
     "errors"
-    "bytes"
-    "strconv"
     "fmt"
     "database/sql"
-    "time"
     _ "github.com/go-sql-driver/mysql"
 )
-
-func scan(value ...interface{}) {
-}
 
 func output(rows *sql.Rows, out interface{}) error {
     outValuePtr := reflect.ValueOf(out)
@@ -232,85 +226,4 @@ func output(rows *sql.Rows, out interface{}) error {
         */
     }
     return nil
-}
-
-type CUserInfo struct {
-    Name string
-    Age int
-    Sex string
-}
-
-func main() {
-    b := bytes.Buffer{}
-    b.WriteString("root")
-    b.WriteString(":")
-    b.WriteString("123456")
-    b.WriteString("@tcp(")
-    b.WriteString("127.0.0.1")
-    b.WriteString(":")
-    b.WriteString(strconv.FormatUint(uint64(3306), 10))
-    b.WriteString(")/")
-    b.WriteString("test")
-    db, err := sql.Open("mysql", b.String())
-    if err != nil {
-        fmt.Println(err)
-        return
-    }
-    defer db.Close()
-    db.SetMaxOpenConns(2000)
-    db.SetMaxIdleConns(1000)
-    db.SetConnMaxLifetime(time.Second * 10)
-    db.Ping()
-    tx, err := db.Begin()
-    if err != nil {
-        return
-    }
-    rows, err := db.Query(fmt.Sprintf(`select * from t_user_info;`))
-    if err != nil {
-        tx.Rollback()
-        return
-    }
-    defer rows.Close()
-
-    user := []*CUserInfo{}
-    output(rows, &user)
-    for _, u := range user {
-        fmt.Println(u)
-    }
-    /*
-    user1 := CUserInfo{}
-    fmt.Println("------CUserInfo{}------")
-    output(rows, &user1)
-    fmt.Println(user1)
-    user2 := []CUserInfo{}
-    fmt.Println("------[]CUserInfo{}------")
-    output(rows, &user2)
-    for _, user := range user2 {
-        fmt.Println(user)
-    }
-    user3 := []*CUserInfo{}
-    fmt.Println("------[]*CUserInfo{}------")
-    output(rows, &user3)
-    for _, user := range user3 {
-        fmt.Println(user)
-    }
-    user4 := []string{}
-    fmt.Println("------[]string{}------")
-    output(rows, &user4)
-    for _, user := range user4 {
-        fmt.Println(user)
-    }
-    user5 := []*string{}
-    fmt.Println("------[]*string{}------")
-    output(rows, &user5)
-    for _, user := range user5 {
-        fmt.Println(*user)
-    }
-    var user6 string
-    fmt.Println("------string{}------")
-    output(rows, &user6)
-    fmt.Println(user6)
-    */
-
-    tx.Commit()
 }
