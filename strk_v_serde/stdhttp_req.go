@@ -26,8 +26,11 @@ type kv interface {
 ** 反序列化 string类型的key, 任意类型的 value
 */
 func deserde(input kv, req *http.Request, output interface{}) error {
-    outType := reflect.TypeOf(output)
     outValue := reflect.ValueOf(output)
+    if outValue.IsNil() {
+        return nil
+    }
+    outType := reflect.TypeOf(output)
     outputKind := outType.Kind()
     var valueType reflect.Type
     switch outputKind {
