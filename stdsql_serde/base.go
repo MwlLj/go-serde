@@ -23,6 +23,9 @@ type base struct {
 }
 
 func (self *base) output(rows *sql.Rows, out interface{}) error {
+    if out == nil {
+        return nil
+    }
     outValuePtr := reflect.ValueOf(out)
     if outValuePtr.IsNil() {
         return nil
