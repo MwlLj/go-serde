@@ -4,7 +4,7 @@ import (
     "fmt"
     "errors"
     "bytes"
-    change "serde/obj2map"
+    change "go-serde/obj2map"
 )
 
 var _ = fmt.Println
