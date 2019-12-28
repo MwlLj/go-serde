@@ -31,11 +31,13 @@ func Obj2MapStrStrWithCollect(obj interface{}, maps *map[string]string) error {
     }
     result := *maps
     var valueType reflect.Type
+    value := reflect.ValueOf(obj)
     outType := reflect.TypeOf(obj)
     outputKind := outType.Kind()
     switch outputKind {
     case reflect.Ptr:
         valueType = outType.Elem()
+        value = value.Elem()
     default:
         valueType = reflect.TypeOf(obj)
     }
@@ -47,7 +49,6 @@ func Obj2MapStrStrWithCollect(obj interface{}, maps *map[string]string) error {
     default:
         return errors.New("is not struct")
     }
-    value := reflect.ValueOf(obj).Elem()
     fieldNum := value.NumField()
     for i := 0; i < fieldNum; i++ {
         field := value.Field(i)
