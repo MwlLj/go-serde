@@ -18,6 +18,18 @@ const (
 */
 func Obj2MapStrStr(obj interface{}) (*map[string]string, error) {
     result := map[string]string{}
+    err := Obj2MapStrStrWithCollect(obj, &result)
+    if err != nil {
+        return nil, err
+    }
+    return &result, nil
+}
+
+func Obj2MapStrStrWithCollect(obj interface{}, maps *map[string]string) error {
+    if maps == nil {
+        return errors.New("param is nil")
+    }
+    result := *maps
     var valueType reflect.Type
     outType := reflect.TypeOf(obj)
     outputKind := outType.Kind()
@@ -33,7 +45,7 @@ func Obj2MapStrStr(obj interface{}) (*map[string]string, error) {
     switch valueType.Kind() {
     case reflect.Struct:
     default:
-        return nil, errors.New("is not struct")
+        return errors.New("is not struct")
     }
     value := reflect.ValueOf(obj).Elem()
     fieldNum := value.NumField()
@@ -83,5 +95,5 @@ func Obj2MapStrStr(obj interface{}) (*map[string]string, error) {
         }
         result[fieldName] = fieldValue
     }
-    return &result, nil
+    return nil
 }

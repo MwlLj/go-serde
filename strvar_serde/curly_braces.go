@@ -9,15 +9,19 @@ import (
 
 var _ = fmt.Println
 
-/*
-** 传入一个字符串, 字符串中的 {var} 使用 结构体 tag 定义的字段的值来替换
-*/
 func CurlyBracesDeserde(input *string, obj interface{}) (*string, error) {
     r, err := change.Obj2MapStrStr(obj)
     if err != nil {
         return nil, err
     }
-    s, err := curlyBracesVarParse(input, func(v *string)(*string, error) {
+    return curlyBracesDeserde(r, input)
+}
+
+/*
+** 传入一个字符串, 字符串中的 {var} 使用 结构体 tag 定义的字段的值来替换
+*/
+func curlyBracesDeserde(r *map[string]string, input *string) (*string, error) {
+    return curlyBracesVarParse(input, func(v *string)(*string, error) {
         var res string
         if v, ok := (*r)[*v]; ok {
             res = v
@@ -26,7 +30,17 @@ func CurlyBracesDeserde(input *string, obj interface{}) (*string, error) {
         }
         return &res, nil
     })
-    return s, nil
+}
+
+func CurlyBracesDeserdeMulti(input *string, objs ...interface{}) (*string, error) {
+    maps := map[string]string{}
+    for _, obj := range objs {
+        err := change.Obj2MapStrStrWithCollect(obj, &maps)
+        if err != nil {
+            return nil, err
+        }
+    }
+    return curlyBracesDeserde(&maps, input)
 }
 
 type mode int8

@@ -26,3 +26,19 @@ func TestObj2MapStrStr(t *testing.T) {
     fmt.Println(*r)
 }
 
+func TestObj2MapStrStrWithCollect(t *testing.T) {
+    f1 := "v1"
+    f2 := "v2"
+    f3 := 3
+    r := map[string]string{}
+    err := Obj2MapStrStrWithCollect(&obj2MapStrStrTestStruct{
+        F1: f1,
+        F2: &f2,
+        F3: f3,
+    }, &r)
+    if err != nil {
+        return
+    }
+    fmt.Println(r)
+}
+
