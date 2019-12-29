@@ -3,7 +3,7 @@ package stdsql_serde
 import (
     "reflect"
     "database/sql"
-    "encoding/json" 
+    "encoding/json"
 )
 
 type tagData struct {
@@ -58,7 +58,8 @@ func (*byTag) assign(rows *sql.Rows, value reflect.Value, t reflect.Type) error 
                 */
             }
             if fk == reflect.String ||
-                fk == reflect.Struct {
+                fk == reflect.Struct ||
+                fk == reflect.Interface {
                 var v sql.NullString
                 cols = append(cols, &v)
                 cns = append(cns, colName)
@@ -151,7 +152,7 @@ func (*byTag) assign(rows *sql.Rows, value reflect.Value, t reflect.Type) error 
                     field.SetBool(v.(*sql.NullBool).Bool)
                 } else if fk == reflect.Float32 || fk == reflect.Float64 {
                     field.SetFloat(v.(*sql.NullFloat64).Float64)
-                } else if fk == reflect.Struct {
+                } else if fk == reflect.Struct || fk == reflect.Interface {
                     /*
                     ** 获取类型, 指定类型序列化
                     */
