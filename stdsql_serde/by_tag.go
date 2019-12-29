@@ -12,9 +12,21 @@ type tagData struct {
 }
 
 type byTag struct {
+    values map[string]interface{}
 }
 
-func (*byTag) assign(rows *sql.Rows, value reflect.Value, t reflect.Type) error {
+func (self *byTag) is(name *string) (interface{}, bool) {
+    if self.values == nil || name == nil {
+        return nil, false
+    }
+    if v, ok := self.values[*name]; ok {
+        return v, true
+    } else {
+        return nil, false
+    }
+}
+
+func (self *byTag) assign(rows *sql.Rows, value reflect.Value, t reflect.Type) error {
     num := value.NumField()
     cols := []interface{}{}
     colNames, err := rows.Columns()
@@ -23,11 +35,16 @@ func (*byTag) assign(rows *sql.Rows, value reflect.Value, t reflect.Type) error 
     }
     names := map[string]tagData{}
     for i := 0; i < num; i++ {
-        field := value.Field(i)
         tag := t.Field(i).Tag
         f := tag.Get(tag_field)
         if f == "" {
             continue
+        }
+        var field reflect.Value
+        if v, ok := self.is(&f); ok {
+            field = reflect.ValueOf(v)
+        } else {
+            field = value.Field(i)
         }
         var ty *string = nil
         typeTag := tag.Get(tag_type)
@@ -176,6 +193,13 @@ func (*byTag) assign(rows *sql.Rows, value reflect.Value, t reflect.Type) error 
 
 func ByTag(rows *sql.Rows, output interface{}) error {
     ba := newBase(&byTag{
+    })
+    return ba.output(rows, output)
+}
+
+func ByTagWithValues(rows *sql.Rows, output interface{}, values map[string]interface{}) error {
+    ba := newBase(&byTag{
+        values: values,
     })
     return ba.output(rows, output)
 }

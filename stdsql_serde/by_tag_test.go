@@ -133,3 +133,61 @@ func TestByTagFromTemplateObj(t *testing.T) {
 
     tx.Commit()
 }
+
+func TestByTagWithValues(t *testing.T) {
+    b := bytes.Buffer{}
+    b.WriteString("root")
+    b.WriteString(":")
+    b.WriteString("123456")
+    b.WriteString("@tcp(")
+    b.WriteString("127.0.0.1")
+    b.WriteString(":")
+    b.WriteString(strconv.FormatUint(uint64(3306), 10))
+    b.WriteString(")/")
+    b.WriteString("test")
+    db, err := sql.Open("mysql", b.String())
+    if err != nil {
+        fmt.Println(err)
+        return
+    }
+    defer db.Close()
+    db.SetMaxOpenConns(2000)
+    db.SetMaxIdleConns(1000)
+    db.SetConnMaxLifetime(time.Second * 10)
+    db.Ping()
+    tx, err := db.Begin()
+    if err != nil {
+        return
+    }
+    rows, err := db.Query(fmt.Sprintf(`select * from t_user_info;`))
+    if err != nil {
+        tx.Rollback()
+        return
+    }
+    defer rows.Close()
+
+    /*
+    user := []*CUserInfo{}
+    output(rows, &user)
+    for _, u := range user {
+        if u.Sex != nil {
+            fmt.Println(u.Age, u.Name, *u.Sex, u.Ext)
+        } else {
+            fmt.Println(u.Age, u.Name)
+        }
+    }
+    */
+    ext := Extra{}
+    // typ := reflect.TypeOf(ext)
+    // n := reflect.New(typ)
+    users := []CUserInfo2{
+    }
+    values := map[string]interface{}{}
+    values["ext"] = ext
+    ByTagWithValues(rows, &users, values)
+    for _, user := range users {
+    	fmt.Println(user)
+    }
+
+    tx.Commit()
+}
