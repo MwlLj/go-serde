@@ -177,13 +177,15 @@ func TestByTagWithValues(t *testing.T) {
         }
     }
     */
-    ext := Extra{}
     // typ := reflect.TypeOf(ext)
     // n := reflect.New(typ)
     users := []CUserInfo2{
     }
     values := map[string]interface{}{}
-    values["ext"] = ext
+    ext := Extra{}
+    // v := reflect.ValueOf(&ext).Elem()
+    // fmt.Println(v.CanAddr())
+    values["extra"] = &ext
     ByTagWithValues(rows, &users, values)
     for _, user := range users {
     	fmt.Println(user)

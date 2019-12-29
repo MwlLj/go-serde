@@ -8,6 +8,7 @@ import (
 
 type tagData struct {
     field reflect.Value
+    srcField *reflect.Value
     t *string
 }
 
@@ -20,7 +21,7 @@ func (self *byTag) is(name *string) (interface{}, bool) {
         return nil, false
     }
     if v, ok := self.values[*name]; ok {
-        return v, true
+        return &v, true
     } else {
         return nil, false
     }
@@ -40,11 +41,12 @@ func (self *byTag) assign(rows *sql.Rows, value reflect.Value, t reflect.Type) e
         if f == "" {
             continue
         }
-        var field reflect.Value
+        field := value.Field(i)
+        var srcField *reflect.Value
         if v, ok := self.is(&f); ok {
-            field = reflect.ValueOf(v)
+            e := reflect.ValueOf(v).Elem()
+            srcField = &e
         } else {
-            field = value.Field(i)
         }
         var ty *string = nil
         typeTag := tag.Get(tag_type)
@@ -53,6 +55,7 @@ func (self *byTag) assign(rows *sql.Rows, value reflect.Value, t reflect.Type) e
         }
         names[f] = tagData{
             field: field,
+            srcField: srcField,
             t: ty,
         }
     }
@@ -104,9 +107,17 @@ func (self *byTag) assign(rows *sql.Rows, value reflect.Value, t reflect.Type) e
         n := cns[i]
         if val, ok := names[n]; ok {
             field := val.field
-            fk := field.Kind()
+            var srcField reflect.Value
+            if val.srcField == nil {
+                srcField = field
+            } else {
+                srcField = *val.srcField
+            }
+            // field := val.field
+            // fk := field.Kind()
+            fk := srcField.Kind()
             if fk == reflect.Ptr {
-                fieldType := field.Type()
+                fieldType := srcField.Type()
                 fieldValue := reflect.New(fieldType)
                 fieldPtrType := fieldType.Elem()
                 fieldPtrValue := reflect.New(fieldPtrType)
@@ -177,7 +188,7 @@ func (self *byTag) assign(rows *sql.Rows, value reflect.Value, t reflect.Type) e
                     if va.Valid {
                         if val.t != nil {
                             if *val.t == tag_type_json {
-                                fieldValue := reflect.New(field.Type())
+                                fieldValue := reflect.New(srcField.Type())
                                 json.Unmarshal([]byte(va.String), fieldValue.Interface())
                                 field.Set(fieldValue.Elem())
                             }
