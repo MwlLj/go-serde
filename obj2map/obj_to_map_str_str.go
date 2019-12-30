@@ -46,6 +46,7 @@ func Obj2MapStrStrWithCollect(obj interface{}, maps *map[string]string) error {
     */
     switch valueType.Kind() {
     case reflect.Struct:
+    case reflect.Interface:
     default:
         return errors.New("is not struct")
     }
