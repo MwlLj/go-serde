@@ -76,6 +76,47 @@ func obj2MapStrStrStructInner(value reflect.Value, valueType reflect.Type, maps 
     }
 }
 
+func calcFieldValue(field reflect.Value, fieldValue *string) {
+    fieldKind := field.Type().Kind()
+    switch fieldKind {
+    case reflect.Ptr:
+        fieldPtrType := field.Type().Elem()
+        fieldPtrKind := fieldPtrType.Kind()
+        fieldElem := field.Elem()
+        switch fieldPtrKind {
+        case reflect.String:
+            *fieldValue = fieldElem.String()
+        case reflect.Int:
+            i := fieldElem.Int()
+            *fieldValue = strconv.FormatInt(i, 10)
+        case reflect.Bool:
+            b := fieldElem.Bool()
+            *fieldValue = strconv.FormatBool(b)
+        case reflect.Float64:
+            f := fieldElem.Float()
+            *fieldValue = strconv.FormatFloat(f, 'f', 10, 32)
+        case reflect.Interface:
+            *fieldValue = fieldElem.String()
+        }
+    default:
+        switch fieldKind {
+        case reflect.String:
+            *fieldValue = field.String()
+        case reflect.Int:
+            i := field.Int()
+            *fieldValue = strconv.FormatInt(i, 10)
+        case reflect.Bool:
+            b := field.Bool()
+            *fieldValue = strconv.FormatBool(b)
+        case reflect.Float64:
+            f := field.Float()
+            *fieldValue = strconv.FormatFloat(f, 'f', 10, 32)
+        case reflect.Interface:
+            calcFieldValue(field.Elem(), fieldValue)
+        }
+    }
+}
+
 func obj2MapStrStrMapInner(value reflect.Value, valueType reflect.Type, maps *map[string]string) {
     result := *maps
     for _, key := range value.MapKeys() {
@@ -83,41 +124,9 @@ func obj2MapStrStrMapInner(value reflect.Value, valueType reflect.Type, maps *ma
         // fieldType := valueType.Field(i)
         field := value.MapIndex(key)
         fieldName := key.String()
-        fieldKind := field.Type().Kind()
+        // fieldKind := field.Type().Kind()
         var fieldValue string
-        switch fieldKind {
-        case reflect.Ptr:
-            fieldPtrType := field.Type().Elem()
-            fieldPtrKind := fieldPtrType.Kind()
-            fieldElem := field.Elem()
-            switch fieldPtrKind {
-            case reflect.String:
-                fieldValue = fieldElem.String()
-            case reflect.Int:
-                i := fieldElem.Int()
-                fieldValue = strconv.FormatInt(i, 10)
-            case reflect.Bool:
-                b := fieldElem.Bool()
-                fieldValue = strconv.FormatBool(b)
-            case reflect.Float64:
-                f := fieldElem.Float()
-                fieldValue = strconv.FormatFloat(f, 'f', 10, 32)
-            }
-        default:
-            switch fieldKind {
-            case reflect.String:
-                fieldValue = field.String()
-            case reflect.Int:
-                i := field.Int()
-                fieldValue = strconv.FormatInt(i, 10)
-            case reflect.Bool:
-                b := field.Bool()
-                fieldValue = strconv.FormatBool(b)
-            case reflect.Float64:
-                f := field.Float()
-                fieldValue = strconv.FormatFloat(f, 'f', 10, 32)
-            }
-        }
+        calcFieldValue(field, &fieldValue)
         result[fieldName] = fieldValue
     }
 }

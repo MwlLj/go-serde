@@ -59,3 +59,19 @@ func TestObj2MapStrStrWithCollect(t *testing.T) {
     fmt.Println(r)
 }
 
+func TestObj2MapStrStrContainMapWithCollect(t *testing.T) {
+    f1 := "v1"
+    f2 := "v2"
+    f3 := 3
+    r := map[string]string{}
+    err := Obj2MapStrStrWithCollect(&map[string]interface{}{
+        "f1": f1,
+        "f2": &f2,
+        "f3": f3,
+    }, &r)
+    if err != nil {
+        return
+    }
+    fmt.Println(r)
+}
+
