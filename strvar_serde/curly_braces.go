@@ -4,7 +4,7 @@ import (
     "fmt"
     "errors"
     "bytes"
-    change "github.com/MwlLj/go-serde/obj2map"
+    change "dbserver/parse/serde/obj2map"
 )
 
 var _ = fmt.Println
@@ -14,7 +14,7 @@ func CurlyBracesDeserde(input *string, obj interface{}) (*string, error) {
     if err != nil {
         return nil, err
     }
-    return curlyBracesDeserde(r, input, nil)
+    return curlyBracesDeserde(r, input, nil, nil)
 }
 
 func CurlyBracesDeserdeWithCustom(input *string, obj interface{}, customF *func(v *string) (*string, error)) (*string, error) {
@@ -22,13 +22,13 @@ func CurlyBracesDeserdeWithCustom(input *string, obj interface{}, customF *func(
     if err != nil {
         return nil, err
     }
-    return curlyBracesDeserde(r, input, customF)
+    return curlyBracesDeserde(r, input, nil, customF)
 }
 
 /*
 ** 传入一个字符串, 字符串中的 {var} 使用 结构体 tag 定义的字段的值来替换
 */
-func curlyBracesDeserde(r *map[string]string, input *string, customF *func(v *string) (*string, error)) (*string, error) {
+func curlyBracesDeserde(r *map[string]string, input *string, areaF func(k *string, v *string), customF *func(v *string) (*string, error)) (*string, error) {
     return curlyBracesVarParse(input, func(v *string)(*string, error) {
         var res string
         if v, ok := (*r)[*v]; ok {
@@ -37,7 +37,7 @@ func curlyBracesDeserde(r *map[string]string, input *string, customF *func(v *st
             return nil, errors.New("not found")
         }
         return &res, nil
-    }, customF)
+    }, areaF, customF)
 }
 
 func CurlyBracesDeserdeMulti(input *string, objs ...interface{}) (*string, error) {
@@ -48,7 +48,7 @@ func CurlyBracesDeserdeMulti(input *string, objs ...interface{}) (*string, error
             return nil, err
         }
     }
-    return curlyBracesDeserde(&maps, input, nil)
+    return curlyBracesDeserde(&maps, input, nil, nil)
 }
 
 func CurlyBracesDeserdeMultiWithCustom(input *string, customF *func(v *string) (*string, error), objs ...interface{}) (*string, error) {
@@ -59,7 +59,18 @@ func CurlyBracesDeserdeMultiWithCustom(input *string, customF *func(v *string) (
             return nil, err
         }
     }
-    return curlyBracesDeserde(&maps, input, customF)
+    return curlyBracesDeserde(&maps, input, nil, customF)
+}
+
+func CurlyBracesDeserdeMultiWithCustomAndArea(input *string, areaF func(k *string, v *string), customF *func(v *string) (*string, error), objs ...interface{}) (*string, error) {
+    maps := map[string]string{}
+    for _, obj := range objs {
+        err := change.Obj2MapStrStrWithCollect(obj, &maps)
+        if err != nil {
+            return nil, err
+        }
+    }
+    return curlyBracesDeserde(&maps, input, areaF, customF)
 }
 
 type mode int8
@@ -68,22 +79,31 @@ const (
     normal
     braces
     brackets
+    angle_brackets
+    angle_brackets_key
+    angle_brackets_value
 )
 
-func curlyBracesVarParse(input *string, f func(v *string) (*string, error), customF *func(v *string) (*string, error)) (*string, error) {
+func curlyBracesVarParse(input *string, f func(v *string) (*string, error), areaF func(k *string, v *string), customF *func(v *string) (*string, error)) (*string, error) {
     if input == nil {
         return nil, errors.New("input is nil")
     }
     var result bytes.Buffer 
     var world bytes.Buffer
+    var angleBracketsKey bytes.Buffer
     m := normal
-    for _, c := range *input {
+    angleBracketsMode := angle_brackets_key
+    length := len(*input)
+    loop:
+    for i, c := range *input {
         switch m {
         case normal:
             if c == '{' {
                 m = braces
             } else if c == '[' {
                 m = brackets
+            } else if c == '<' {
+                m = angle_brackets;
             } else {
                 result.WriteRune(c)
             }
@@ -114,6 +134,44 @@ func curlyBracesVarParse(input *string, f func(v *string) (*string, error), cust
                 world.Reset()
             } else {
                 world.WriteRune(c)
+            }
+        case angle_brackets:
+            switch angleBracketsMode {
+            case angle_brackets_key:
+                if c == '>' {
+                    if i+1 > length - 1 {
+                        break loop
+                    }
+                    if (*input)[i+1] == '<' {
+                        angleBracketsMode = angle_brackets_value
+                    } else {
+                        break loop
+                    }
+                } else {
+                    angleBracketsKey.WriteRune(c)
+                }
+            case angle_brackets_value:
+                if c == '>' {
+                    m = normal
+                    angleBracketsMode = angle_brackets_key
+                    in := world.String()
+                    v, e := curlyBracesVarParse(&in, f, areaF, customF)
+                    if e != nil {
+                        break loop
+                    }
+                    result.WriteString(*v)
+                    if areaF != nil {
+                        k := angleBracketsKey.String()
+                        areaF(&k, v)
+                    }
+                    world.Reset()
+                    angleBracketsKey.Reset()
+                } else {
+                    if c == '<' {
+                        continue
+                    }
+                    world.WriteRune(c)
+                }
             }
         }
     }

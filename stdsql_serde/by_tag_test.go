@@ -19,14 +19,14 @@ type CUserInfo struct {
     Age int `field:"age"`
     Name string `field:"name"`
     Sex *string `field:"sex"`
-    Ext *Extra `field:"extra" type:"json"`
+    Ext *Extra `field:"extra"`
 }
 
 type CUserInfo2 struct {
     Age int `field:"age"`
     Name string `field:"name"`
     Sex *string `field:"sex"`
-    Ext interface{} `field:"extra" type:"json"`
+    Ext interface{} `field:"extra"`
 }
 
 func TestByTag(t *testing.T) {

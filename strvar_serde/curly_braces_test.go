@@ -20,6 +20,7 @@ type testStruct2 struct {
 }
 
 func TestCurlyBracesDeserde(t *testing.T) {
+    t.SkipNow()
     input := "hello, {name}, age: {age}"
     r, err := CurlyBracesDeserde(&input, &testStruct{
         Name: "Jake",
@@ -32,6 +33,7 @@ func TestCurlyBracesDeserde(t *testing.T) {
 }
 
 func TestCurlyBracesDeserdeWithCustom(t *testing.T) {
+    t.SkipNow()
     input := "hello, {name}, age: {age}, [uuid]"
     customF := func(v *string) (*string, error) {
         if *v == "uuid" {
@@ -51,6 +53,7 @@ func TestCurlyBracesDeserdeWithCustom(t *testing.T) {
 }
 
 func TestCurlyBracesDeserdeMulti(t *testing.T) {
+    t.SkipNow()
     input := "hello, {name}, age: {age}"
     r, err := CurlyBracesDeserdeMulti(&input, &testStruct1{
         Name: "Jake",
@@ -64,6 +67,7 @@ func TestCurlyBracesDeserdeMulti(t *testing.T) {
 }
 
 func TestCurlyBracesDeserdeMultiWithCustom(t *testing.T) {
+    t.SkipNow()
     input := "hello, {name}, age: {age}, [uuid]"
     customF := func(v *string) (*string, error) {
         if *v == "uuid" {
@@ -83,13 +87,38 @@ func TestCurlyBracesDeserdeMultiWithCustom(t *testing.T) {
     fmt.Println(*r)
 }
 
+func TestCurlyBracesDeserdeMultiWithCustomAndArea(t *testing.T) {
+    // t.SkipNow()
+    input := "hello, {name}, age: <a><{age}, [uuid]>"
+    customF := func(v *string) (*string, error) {
+        if *v == "uuid" {
+            uuid := "123456"
+            return &uuid, nil
+        }
+        return nil, errors.New("not match")
+    }
+    r, err := CurlyBracesDeserdeMultiWithCustomAndArea(&input,
+        func(k *string, v *string) {
+            fmt.Println(*k, *v)
+        }, &customF, &testStruct1{
+        Name: "Jake",
+    }, &testStruct2{
+        Age: 20,
+    })
+    if err != nil {
+        return
+    }
+    fmt.Println(*r)
+}
+
 func TestCurlyBracesVarParse(t *testing.T) {
+    t.SkipNow()
     input := "hello {name}, age: {age}"
     s, err := curlyBracesVarParse(&input, func(v *string)(*string, error) {
         fmt.Println(*v)
         r := "xxx"
         return &r, nil
-    }, nil)
+    }, nil, nil)
     if err != nil {
         return
     }

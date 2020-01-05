@@ -154,13 +154,18 @@ func (self *byTag) assign(rows *sql.Rows, value reflect.Value, t reflect.Type) e
                     */
                     va := v.(*sql.NullString)
                     if va.Valid {
+                        t := tag_type_json
                         if val.t != nil {
                             if *val.t == tag_type_json {
-                                fieldValue := reflect.New(fieldPtrType)
-                                json.Unmarshal([]byte(va.String), fieldValue.Interface())
-                                fieldPtrValueElem.Set(fieldValue.Elem())
+                                t = tag_type_json
                             }
                         } else {
+                            t = tag_type_json
+                        }
+                        if t == tag_type_json {
+                            fieldValue := reflect.New(fieldPtrType)
+                            json.Unmarshal([]byte(va.String), fieldValue.Interface())
+                            fieldPtrValueElem.Set(fieldValue.Elem())
                         }
                     }
                 }
@@ -186,13 +191,18 @@ func (self *byTag) assign(rows *sql.Rows, value reflect.Value, t reflect.Type) e
                     */
                     va := v.(*sql.NullString)
                     if va.Valid {
+                        t := tag_type_json
                         if val.t != nil {
                             if *val.t == tag_type_json {
-                                fieldValue := reflect.New(srcField.Type())
-                                json.Unmarshal([]byte(va.String), fieldValue.Interface())
-                                field.Set(fieldValue.Elem())
+                                t = tag_type_json
                             }
                         } else {
+                            t = tag_type_json
+                        }
+                        if t == tag_type_json {
+                            fieldValue := reflect.New(srcField.Type())
+                            json.Unmarshal([]byte(va.String), fieldValue.Interface())
+                            field.Set(fieldValue.Elem())
                         }
                     }
                 }
