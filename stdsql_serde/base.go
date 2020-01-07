@@ -27,7 +27,12 @@ func (self *base) output(rows *sql.Rows, out interface{}) error {
         return nil
     }
     outValuePtr := reflect.ValueOf(out)
+    fmt.Println("********", outValuePtr.Kind())
     if outValuePtr.IsNil() {
+        // t := reflect.TypeOf(out)
+        // v := reflect.ValueOf(out)
+        // outValuePtr = reflect.New(t.Elem())
+        // v.Set(outValuePtr.Elem())
         return nil
     }
     /*
@@ -43,6 +48,7 @@ func (self *base) output(rows *sql.Rows, out interface{}) error {
     /*
     ** 判断是否是 slice
     */
+    fmt.Println("$$$$$$$$$$$$$", outValue.Kind())
     if outValue.Kind() == reflect.Slice {
         // fmt.Println("is slice")
         /*
@@ -123,30 +129,53 @@ func (self *base) output(rows *sql.Rows, out interface{}) error {
         /*
         ** 只读取一行
         */
-        if rows.Next() {
-            // fmt.Println("is not slice")
-            objType := outValue.Type()
-            /*
-            ** 判断类型是否是结构体
-            */
-            if objType.Kind() == reflect.Struct {
-                // fmt.Println("objType is struct")
+        objType := outValue.Type()
+        switch objType.Kind() {
+        case reflect.Ptr:
+            sliceValue := reflect.New(objType)
+            fmt.Println("-----", sliceValue)
+            err := self.output(rows, &sliceValue)
+            if err != nil {
+                return err
+            }
+            // fmt.Println(sliceValue)
+            outValue.Set(sliceValue)
+        default:
+            if rows.Next() {
+                // fmt.Println("is not slice")
                 /*
-                ** 读取多列
+                ** 判断类型是否是结构体
                 */
-                sliceValue := reflect.New(objType)
-                sliceValueElem := sliceValue.Elem()
-                self.set.assign(rows, sliceValueElem, objType)
-                outValue.Set(sliceValueElem)
-            } else {
-                // fmt.Println("objType is not struct")
-                /*
-                ** 读取一列
-                */
-                sliceValue := reflect.New(objType)
-                sliceValueElem := sliceValue.Elem()
-                self.set.assign(rows, sliceValueElem, objType)
-                outValue.Set(sliceValueElem)
+                switch objType.Kind() {
+                case reflect.Struct:
+                    // fmt.Println("objType is struct")
+                    /*
+                    ** 读取多列
+                    */
+                    sliceValue := reflect.New(objType)
+                    sliceValueElem := sliceValue.Elem()
+                    self.set.assign(rows, sliceValueElem, objType)
+                    outValue.Set(sliceValueElem)
+                    fmt.Println("++++++++", outValue)
+                // case reflect.Ptr:
+                //     sliceValue := reflect.New(objType.Elem())
+                //     fmt.Println("-----", sliceValue)
+                //     err := self.output(rows, &sliceValue)
+                //     if err != nil {
+                //         return err
+                //     }
+                //     // fmt.Println(sliceValue)
+                //     outValue.Set(sliceValue)
+                default:
+                    // fmt.Println("objType is not struct")
+                    /*
+                    ** 读取一列
+                    */
+                    sliceValue := reflect.New(objType)
+                    sliceValueElem := sliceValue.Elem()
+                    self.set.assign(rows, sliceValueElem, objType)
+                    outValue.Set(sliceValueElem)
+                }
             }
         }
     }

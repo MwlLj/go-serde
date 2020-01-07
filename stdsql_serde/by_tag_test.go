@@ -30,6 +30,7 @@ type CUserInfo2 struct {
 }
 
 func TestByTag(t *testing.T) {
+    // t.SkipNow()
     b := bytes.Buffer{}
     b.WriteString("root")
     b.WriteString(":")
@@ -72,14 +73,22 @@ func TestByTag(t *testing.T) {
         }
     }
     */
-    user := CUserInfo{}
-    ByTag(rows, &user)
-    fmt.Println(user.Name, user.Age, *user.Sex, *user.Ext)
+    // user := CUserInfo{}
+    // ByTag(rows, &user)
+    // fmt.Println(user.Name, user.Age, *user.Sex, *user.Ext)
+    var user *CUserInfo
+    err = ByTag(rows, &user)
+    if user != nil {
+        fmt.Println(user.Name, user.Age, user.Sex, user.Ext)
+    } else {
+        fmt.Println("error", err)
+    }
 
     tx.Commit()
 }
 
 func TestByTagFromTemplateObj(t *testing.T) {
+    t.SkipNow()
     b := bytes.Buffer{}
     b.WriteString("root")
     b.WriteString(":")
@@ -135,6 +144,7 @@ func TestByTagFromTemplateObj(t *testing.T) {
 }
 
 func TestByTagWithValues(t *testing.T) {
+    t.SkipNow()
     b := bytes.Buffer{}
     b.WriteString("root")
     b.WriteString(":")

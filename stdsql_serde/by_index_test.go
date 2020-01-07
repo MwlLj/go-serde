@@ -22,6 +22,7 @@ type CByIndexUserInfo struct {
 }
 
 func TestByIndex(t *testing.T) {
+    t.SkipNow()
     b := bytes.Buffer{}
     b.WriteString("root")
     b.WriteString(":")
