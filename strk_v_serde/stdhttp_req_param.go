@@ -22,3 +22,11 @@ func HttpReqParamDeserde(req *http.Request, output interface{}) error {
     input := httpParam{}
     return deserde(&input, req, output)
 }
+
+func HttpReqParamValue(req *http.Request, key string) *string {
+    if v := req.URL.Query().Get(key); v != "" {
+        return &v
+    } else {
+        return nil
+    }
+}

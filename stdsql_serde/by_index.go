@@ -137,5 +137,9 @@ func (*byIndex) assign(rows *sql.Rows, value reflect.Value, t reflect.Type) erro
 func ByIndex(rows *sql.Rows, output interface{}) error {
     ba := newBase(&byIndex{
     })
-    return ba.output(rows, output)
+    _, err := ba.output(rows, output)
+    if err != nil {
+        return err
+    }
+    return nil
 }

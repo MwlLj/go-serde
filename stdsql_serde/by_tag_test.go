@@ -55,7 +55,8 @@ func TestByTag(t *testing.T) {
     if err != nil {
         return
     }
-    rows, err := db.Query(fmt.Sprintf(`select * from t_user_info;`))
+    // rows, err := db.Query(fmt.Sprintf(`select * from t_user_info;`))
+    rows, err := db.Query(fmt.Sprintf(`select count(0) from t_user_info;`))
     if err != nil {
         tx.Rollback()
         return
@@ -76,13 +77,20 @@ func TestByTag(t *testing.T) {
     // user := CUserInfo{}
     // ByTag(rows, &user)
     // fmt.Println(user.Name, user.Age, *user.Sex, *user.Ext)
+
+    /*
     var user *CUserInfo
     err = ByTag(rows, &user)
     if user != nil {
         fmt.Println(user.Name, user.Age, user.Sex, user.Ext)
     } else {
-        fmt.Println("error", err)
+        fmt.Println("not found")
     }
+    */
+
+    var count *int
+    err = ByTag(rows, &count)
+    fmt.Println(*count)
 
     tx.Commit()
 }

@@ -5,8 +5,10 @@ import (
     "errors"
     "fmt"
     "database/sql"
-    _ "github.com/go-sql-driver/mysql"
+    // "unsafe"
 )
+
+var _ = fmt.Println
 
 const (
     tag_field string = "field"
@@ -22,24 +24,19 @@ type base struct {
     set ISet
 }
 
-func (self *base) output(rows *sql.Rows, out interface{}) error {
+func (self *base) output(rows *sql.Rows, out interface{}) (bool, error) {
     if out == nil {
-        return nil
+        return false, nil
     }
     outValuePtr := reflect.ValueOf(out)
-    fmt.Println("********", outValuePtr.Kind())
     if outValuePtr.IsNil() {
-        // t := reflect.TypeOf(out)
-        // v := reflect.ValueOf(out)
-        // outValuePtr = reflect.New(t.Elem())
-        // v.Set(outValuePtr.Elem())
-        return nil
+        return false, nil
     }
     /*
     ** 判断是否可以设置
     */
     if outValuePtr.Kind() != reflect.Ptr {
-        return errors.New("can not set, please use pointer")
+        return false, errors.New("can not set, please use pointer")
     }
     /*
     ** 取出指针的值
@@ -48,13 +45,14 @@ func (self *base) output(rows *sql.Rows, out interface{}) error {
     /*
     ** 判断是否是 slice
     */
-    fmt.Println("$$$$$$$$$$$$$", outValue.Kind())
     if outValue.Kind() == reflect.Slice {
         // fmt.Println("is slice")
         /*
         ** 读取每一个行的值, 然后追加到 slice 中
         */
+        has := false
         for rows.Next() {
+            has = true
             /*
             ** 获取 slice 中的类型
             */
@@ -86,7 +84,7 @@ func (self *base) output(rows *sql.Rows, out interface{}) error {
                     sliceValueElem.Set(slicePtrValue)
                     outValue.Set(reflect.Append(outValue, sliceValueElem))
                 } else {
-                    fmt.Println("slicePtrType is not struct")
+                    // fmt.Println("slicePtrType is not struct")
                     /*
                     ** 读取一列
                     ** []*string
@@ -125,21 +123,25 @@ func (self *base) output(rows *sql.Rows, out interface{}) error {
                 }
             }
         }
+        if !has {
+            return false, nil
+        }
     } else {
+        // fmt.Println("is not slice")
         /*
         ** 只读取一行
         */
         objType := outValue.Type()
         switch objType.Kind() {
         case reflect.Ptr:
-            sliceValue := reflect.New(objType)
-            fmt.Println("-----", sliceValue)
-            err := self.output(rows, &sliceValue)
+            sliceValue := reflect.New(objType.Elem())
+            isExist, err := self.output(rows, sliceValue.Interface())
             if err != nil {
-                return err
+                return false, err
             }
-            // fmt.Println(sliceValue)
-            outValue.Set(sliceValue)
+            if isExist {
+                outValue.Set(sliceValue)
+            }
         default:
             if rows.Next() {
                 // fmt.Println("is not slice")
@@ -156,16 +158,6 @@ func (self *base) output(rows *sql.Rows, out interface{}) error {
                     sliceValueElem := sliceValue.Elem()
                     self.set.assign(rows, sliceValueElem, objType)
                     outValue.Set(sliceValueElem)
-                    fmt.Println("++++++++", outValue)
-                // case reflect.Ptr:
-                //     sliceValue := reflect.New(objType.Elem())
-                //     fmt.Println("-----", sliceValue)
-                //     err := self.output(rows, &sliceValue)
-                //     if err != nil {
-                //         return err
-                //     }
-                //     // fmt.Println(sliceValue)
-                //     outValue.Set(sliceValue)
                 default:
                     // fmt.Println("objType is not struct")
                     /*
@@ -176,10 +168,12 @@ func (self *base) output(rows *sql.Rows, out interface{}) error {
                     self.set.assign(rows, sliceValueElem, objType)
                     outValue.Set(sliceValueElem)
                 }
+            } else {
+                return false, nil
             }
         }
     }
-    return nil
+    return true, nil
 }
 
 func newBase(set ISet) *base {

@@ -21,3 +21,11 @@ func HttpReqHeaderDeserde(req *http.Request, output interface{}) error {
     input := httpHeader{}
     return deserde(&input, req, output)
 }
+
+func HttpReqHeaderValue(req *http.Request, key string) *string {
+    if v := req.Header.Get(key); v != "" {
+        return &v
+    } else {
+        return nil
+    }
+}
