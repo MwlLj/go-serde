@@ -4,7 +4,7 @@ import (
     "fmt"
     "errors"
     "bytes"
-    change "dbserver/parse/serde/obj2map"
+    change "github.com/MwlLj/go-serde/obj2map"
 )
 
 var _ = fmt.Println
