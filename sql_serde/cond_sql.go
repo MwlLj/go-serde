@@ -15,16 +15,19 @@ const (
     cond_tag_cond_field string = "condfield"
     cond_tag_pos string = "pos"
     cond_tag_quota string = "quota"
-    keyword_key string = "k"
-    keyword_value string = "v"
+    keyword_key rune = 'k'
+    keyword_value rune = 'v'
+    keyword_dollar rune = '$'
     keyword_va string = "$v"
     keyword_quota_true string = "true"
     keyword_quota_false string = "false"
 )
 
 var (
-    keyword_key_len int = len(keyword_key)
-    keyword_value_len int = len(keyword_value)
+    // keyword_key_len int = len(keyword_key)
+    // keyword_value_len int = len(keyword_value)
+    keyword_key_len int = 1
+    keyword_value_len int = 1
     keyword_va_len int = len(keyword_va)
 )
 
@@ -33,6 +36,14 @@ const (
     _ Mode = iota
     normal
     bigBrackets
+)
+
+type InnerMode int8
+const (
+    _ InnerMode = iota
+    innerModeNormal
+    innerModeDollar
+    innerModeKV
 )
 
 type blockMode int8
@@ -361,8 +372,10 @@ func (*CCondSqlSplice) parse(sql string, fn func(*data) string) string {
     content := bytes.Buffer{}
     startIndex := 0
     kIndexTmp := 0
+    vIndexTmp := 0
     curIndex := -1
     var mode Mode = normal
+    var innerMode InnerMode = innerModeNormal
     for i, c := range sql {
         switch mode {
         case normal:
@@ -377,63 +390,53 @@ func (*CCondSqlSplice) parse(sql string, fn func(*data) string) string {
         case bigBrackets:
             switch c {
             case '}':
-                switch word.String() {
-                case keyword_key:
-                    kIndexTmp = i - 1 - startIndex - keyword_key_len
-                case keyword_value:
-                    vIndex := i - 1 - startIndex - keyword_value_len
+                switch innerMode {
+                case innerModeKV:
                     buf.WriteString(fn(&data{
                         curIndex: curIndex,
                         kIndex: kIndexTmp,
-                        vIndex: vIndex,
+                        vIndex: vIndexTmp,
                         content: content.String(),
                         mode: repeat,
                     }))
-                case keyword_va:
-                    vIndex := i - 1 - startIndex - keyword_va_len
+                case innerModeDollar:
                     buf.WriteString(fn(&data{
                         curIndex: curIndex,
-                        vIndex: vIndex,
+                        vIndex: vIndexTmp,
                         content: content.String(),
                         mode: single,
                     }))
                 default:
-                    // word.Reset()
-                    // continue
                 }
                 mode = normal
+                innerMode = innerModeNormal
                 word.Reset()
                 content.Reset()
             default:
                 content.WriteRune(c)
-                if c == ',' || c == '=' || c == ' ' || c == '.' || c == '(' || c == ')' {
-                    switch word.String() {
+                switch innerMode {
+                case innerModeNormal:
+                    switch c {
                     case keyword_key:
-                        kIndexTmp = i - 1 - startIndex - keyword_key_len
-                    case keyword_value:
-                        vIndex := i - 1 - startIndex - keyword_value_len
-                        buf.WriteString(fn(&data{
-                            curIndex: curIndex,
-                            kIndex: kIndexTmp,
-                            vIndex: vIndex,
-                            content: content.String(),
-                            mode: repeat,
-                        }))
-                    case keyword_va:
-                        vIndex := i - 1 - startIndex - keyword_va_len
-                        buf.WriteString(fn(&data{
-                            curIndex: curIndex,
-                            vIndex: vIndex,
-                            content: content.String(),
-                            mode: single,
-                        }))
-                    default:
-                        word.Reset()
-                        continue
+                        kIndexTmp = i - startIndex - keyword_key_len
+                        innerMode = innerModeKV
+                    case keyword_dollar:
+                        kIndexTmp = i - startIndex - keyword_key_len
+                        innerMode = innerModeDollar
                     }
-                    word.Reset()
-                } else {
-                    word.WriteRune(c)
+                case innerModeKV:
+                    switch c {
+                    case keyword_value:
+                        vIndexTmp = i - startIndex - keyword_value_len
+                    }
+                case innerModeDollar:
+                    switch c {
+                    case keyword_value:
+                        /*
+                        ** $v
+                        */
+                        vIndexTmp = i - startIndex - keyword_va_len
+                    }
                 }
             }
         }

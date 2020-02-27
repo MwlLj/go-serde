@@ -11,11 +11,12 @@ type updateSqlObj struct {
     Name *string `field:"name" pos:"0, 1"`
     Likes *string `field:"likes" pos:"0"`
     Age *int `field:"age" pos:"1"`
-    Limit *int `field:"limit" pos:"4"`
-    Offset *int `field:"offset" pos:"5"`
+    Limit *int `field:"limit" pos:"5"`
+    Offset *int `field:"offset" pos:"6"`
     Types *[]string `field:"type" pos:"1"`
     BeginTime *string `condfield:"create_time" pos:"2"`
     EndTime *string `field:"endTime" pos:"3" quota:"true"`
+    ElementName *string `field:"element_name" pos:"4" quota:"false"`
 }
 
 func TestCondSqlSpliceParse(t *testing.T) {
@@ -29,7 +30,7 @@ func TestCondSqlSpliceParse(t *testing.T) {
 }
 
 func TestCondSqlSpliceSerde(t *testing.T) {
-    sql := "update t_user_info set name = name {, k = v} where name = name{ and a.k = v}{ k between v}{ and $v}{ limit $v }{ offset $v};"
+    sql := "update t_user_info set name = name {, k = v} where name = name{ and a.k = v}{ k between v}{ and $v}{ and k like '%v%'}{ limit $v }{ offset $v};"
     // sql := "update t_user_info set name = name {, k = v} where name = name{ and a.k = v} and creatTime > { $v} and creatTime < { $v}{ limit $v }{ offset $v};"
     // sql := "select * from t_vss_vehicle_snapshot_record where 1 = 1{ and k = v}{} and creatTime > { $v} and creatTime < { $v}"
     name := "jake"
@@ -42,6 +43,7 @@ func TestCondSqlSpliceSerde(t *testing.T) {
     }
     beginTime := "2020-01-09 00:00:00"
     endTime := "2020-01-09 23:59:59"
+    elementName := "9.10"
     obj := updateSqlObj{
         Name: &name,
         Age: &age,
@@ -51,6 +53,7 @@ func TestCondSqlSpliceSerde(t *testing.T) {
         Types: &types,
         BeginTime: &beginTime,
         EndTime: &endTime,
+        ElementName: &elementName,
     }
     s := NewCondSqlSplice()
     r, err := s.Serde(sql, &obj)
