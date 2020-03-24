@@ -3,6 +3,7 @@ package sql_serde
 import (
     "testing"
     "fmt"
+    "bytes"
 )
 
 var _ = fmt.Println
@@ -23,16 +24,49 @@ func TestCondSqlSpliceParse(t *testing.T) {
     t.SkipNow()
     sql := "update t_user_info set name = name {,k=v} where name = name {and k = v};"
     s := NewCondSqlSplice()
-    s.parse(sql, func(d *data) string {
+    s.parse(sql, func(d *data) (string, bool) {
         fmt.Println(d.curIndex, d.kIndex, d.vIndex, d.content)
-        return ""
+        return "", true
     })
 }
 
+func TestCondSqlAngleParse(t *testing.T) {
+    t.SkipNow()
+    content := "[prefix] [0-1, 5, 2-4] [ set]"
+    s := NewCondSqlSplice()
+    var am angleMode = angleModeNormal
+    var midClassify string
+    var midIndex int = 0
+    var word bytes.Buffer
+    var ad angleData = angleData{
+        prefixIndexGroup: make(map[int]int),
+        prefixGroup: make(map[int]prefix),
+        splitIndexGroup: make(map[int]int),
+        splitGroup: make(map[int]split),
+        prefixIndex: 0,
+        splitIndex: 0,
+    }
+    var al angleLast
+    for _, c := range content {
+        s.angleParse(c, &am, &midClassify, &midIndex, &word, &ad, &al)
+    }
+    fmt.Println(ad)
+}
+
 func TestCondSqlSpliceSerde(t *testing.T) {
-    sql := "update t_user_info set name = name {, k = v} where name = name{ and a.k = v}{ k between v}{ and $v}{ and k like '%v%'}{ limit $v }{ offset $v};"
+    // t.SkipNow()
+    // sql := "update t_user_info set name = name {, k = v} where name = name{ and a.k = v}{ and k between v}{ and $v}{ and k like '%v%'}{ limit $v }{ offset $v};"
     // sql := "update t_user_info set name = name {, k = v} where name = name{ and a.k = v} and creatTime > { $v} and creatTime < { $v}{ limit $v }{ offset $v};"
     // sql := "select * from t_vss_vehicle_snapshot_record where 1 = 1{ and k = v}{} and creatTime > { $v} and creatTime < { $v}"
+    // sql := "update t_user_info<[prefix] [0] [ set]><[split] [0] [,]>{ k = v}<[prefix] [1-4] [ where]><[split] [1-2, 4] [ and]>{ a.k = v}{ k between v}{ and $v}{ k like '%v%'}{ limit $v}{ offset $v};"
+    sql := `
+    <[prefix] [0] [ set]>
+    <[split] [0] [,]>
+    <[prefix] [1-4] [ where]>
+    <[split] [1-2, 4] [ and]>
+    update t_user_info{ k = v}{ a.k = v}{ k between v}{ and $v}{ k like '%v%'}{ limit $v}{ offset $v};
+    `
+    // sql := "update t_user_info<[0], set>{<,> k = v};"
     name := "jake"
     age := 20
     likes := "fruit"

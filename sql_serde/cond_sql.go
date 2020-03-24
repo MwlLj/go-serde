@@ -36,6 +36,7 @@ const (
     _ Mode = iota
     normal
     bigBrackets
+    angleBrackets
 )
 
 type InnerMode int8
@@ -59,6 +60,8 @@ type data struct {
     vIndex int
     content string
     mode blockMode
+    splitValue *string
+    isGroupFirst bool
 }
 
 type fieldInfo struct {
@@ -75,7 +78,7 @@ func (self *CCondSqlSplice) Serde(sql string, obj interface{}) (*string, error) 
     if err != nil {
         return nil, err
     }
-    r := self.parse(sql, func(d *data) string {
+    r := self.parse(sql, func(d *data) (string, bool) {
         /*
         ** 比较 kIndex 与 vIndex 的大小
         ** 先替换较大的 (较小的索引就不需要变更)
@@ -102,11 +105,26 @@ func (self *CCondSqlSplice) Serde(sql string, obj interface{}) (*string, error) 
                 /*
                 ** 遍历字段map
                 */
+                if len(*v) == 0 {
+                    return buf.String(), false
+                }
+                i := 0
                 for key, va := range *v {
                     /*
                     ** 替换 v2
                     */
-                    for _, value := range *va {
+                    if d.isGroupFirst && i == 0 {
+                    } else {
+                        if d.splitValue != nil {
+                            buf.WriteString(*d.splitValue)
+                        }
+                    }
+                    for j, value := range *va {
+                        if j > 0 {
+                            if d.splitValue != nil {
+                                buf.WriteString(*d.splitValue)
+                            }
+                        }
                         bufOnce := bytes.Buffer{}
                         bufOnce.WriteString(d.content[0:v2])
                         if value.isAddQuote {
@@ -127,11 +145,15 @@ func (self *CCondSqlSplice) Serde(sql string, obj interface{}) (*string, error) 
                         bufOnce.WriteString(t[v1+v1Len:])
                         buf.WriteString(bufOnce.String())
                     }
+                    i += 1
                 }
             } else {
-                return buf.String()
+                /*
+                ** 结构体字段中不存在, 当前{}位置
+                */
+                return buf.String(), false
             }
-            return buf.String()
+            return buf.String(), true
         case single:
             var buf bytes.Buffer
             if v, ok := maps[d.curIndex]; ok {
@@ -154,9 +176,9 @@ func (self *CCondSqlSplice) Serde(sql string, obj interface{}) (*string, error) 
                     }
                 }
             }
-            return buf.String()
+            return buf.String(), true
         }
-        return ""
+        return "", false
     })
     return &r, nil
 }
@@ -366,7 +388,170 @@ func (self *CCondSqlSplice) obj2MapStrStrStructInner(value reflect.Value, valueT
     }
 }
 
-func (*CCondSqlSplice) parse(sql string, fn func(*data) string) string {
+type prefix struct {
+    is bool
+    value string
+}
+
+type split struct {
+    is bool
+    value string
+}
+
+type angleMode int8
+const (
+    _ angleMode = iota
+    angleModeNormal
+    angleModeMid
+)
+
+const (
+    midClassifyPrefix string = "prefix"
+    midClassifySplit string = "split"
+)
+
+type angleData struct {
+    /*
+    ** 存储 前缀 curIndex <-> 组号
+    */
+    prefixIndexGroup map[int]int
+    /*
+    ** 存储 前缀 组号 <-> 是否赋值
+    */
+    prefixGroup map[int]prefix
+    splitIndexGroup map[int]int
+    splitGroup map[int]split
+    prefixIndex int
+    splitIndex int
+}
+
+type angleLast struct {
+    c rune
+    value int
+}
+
+func (self *angleLast) clear() {
+    self.c = ' '
+    self.value = 0
+}
+
+func (*CCondSqlSplice) angleParse(c rune, am *angleMode, midClassify *string, midIndex *int, word *bytes.Buffer, ad *angleData, al *angleLast) error {
+    switch *am {
+    case angleModeNormal:
+        switch c {
+        case '[':
+            *am = angleModeMid
+        default:
+        }
+    case angleModeMid:
+        switch c {
+        case ']':
+            switch *midIndex {
+            case 0:
+                *midClassify = word.String()
+            case 1:
+                if word.Len() > 0 {
+                    v, err := strconv.ParseInt(word.String(), 10, 32)
+                    if err != nil {
+                        return err
+                    }
+                    if al.c == '-' {
+                        for i := al.value; i <= int(v); i++ {
+                            if *midClassify == midClassifyPrefix {
+                                ad.prefixIndexGroup[i] = ad.prefixIndex
+                            } else if *midClassify == midClassifySplit {
+                                ad.splitIndexGroup[i] = ad.splitIndex
+                            }
+                        }
+                    } else {
+                        if *midClassify == midClassifyPrefix {
+                            ad.prefixIndexGroup[int(v)] = ad.prefixIndex
+                        } else if *midClassify == midClassifySplit {
+                            ad.splitIndexGroup[int(v)] = ad.splitIndex
+                        }
+                    }
+                    al.clear()
+                }
+            case 2:
+                if *midClassify == midClassifyPrefix {
+                    ad.prefixGroup[ad.prefixIndex] = prefix{
+                        is: false,
+                        value: word.String(),
+                    }
+                } else if *midClassify == midClassifySplit {
+                    ad.splitGroup[ad.splitIndex] = split{
+                        is: false,
+                        value: word.String(),
+                    }
+                }
+            }
+            word.Reset()
+            *am = angleModeNormal
+            *midIndex += 1
+        default:
+            switch *midIndex {
+            case 0:
+                switch c {
+                case ' ':
+                    return nil
+                default:
+                    word.WriteRune(c)
+                }
+            case 1:
+                /*
+                ** 0 / 0-1 / 0-1, 2
+                */
+                switch c {
+                case '-':
+                    v, err := strconv.ParseInt(word.String(), 10, 32)
+                    if err != nil {
+                        return err
+                    }
+                    *al = angleLast{
+                        c: c,
+                        value: int(v),
+                    }
+                    word.Reset()
+                case ',':
+                    v, err := strconv.ParseInt(word.String(), 10, 32)
+                    if err != nil {
+                        return err
+                    }
+                    if al.c == '-' {
+                        for i := al.value; i <= int(v); i++ {
+                            if *midClassify == midClassifyPrefix {
+                                ad.prefixIndexGroup[i] = ad.prefixIndex
+                            } else if *midClassify == midClassifySplit {
+                                ad.splitIndexGroup[i] = ad.splitIndex
+                            }
+                        }
+                    } else {
+                        if *midClassify == midClassifyPrefix {
+                            ad.prefixIndexGroup[int(v)] = ad.prefixIndex
+                        } else if *midClassify == midClassifySplit {
+                            ad.splitIndexGroup[int(v)] = ad.splitIndex
+                        }
+                    }
+                    *al = angleLast{
+                        c: c,
+                        value: int(v),
+                    }
+                    word.Reset()
+                case ' ':
+                    return nil
+                default:
+                    word.WriteRune(c)
+                }
+            case 2:
+                word.WriteRune(c)
+            }
+        }
+    default:
+    }
+    return nil
+}
+
+func (self *CCondSqlSplice) parse(sql string, fn func(*data) (string, bool)) string {
     buf := bytes.Buffer{}
     word := bytes.Buffer{}
     content := bytes.Buffer{}
@@ -374,9 +559,24 @@ func (*CCondSqlSplice) parse(sql string, fn func(*data) string) string {
     kIndexTmp := 0
     vIndexTmp := 0
     curIndex := -1
+    var am angleMode = angleModeNormal
+    var midClassify string
+    var midIndex int = 0
+    var ad angleData = angleData{
+        prefixIndexGroup: make(map[int]int),
+        prefixGroup: make(map[int]prefix),
+        splitIndexGroup: make(map[int]int),
+        splitGroup: make(map[int]split),
+        prefixIndex: 0,
+        splitIndex: 0,
+    }
+    var al angleLast
     var mode Mode = normal
     var innerMode InnerMode = innerModeNormal
     for i, c := range sql {
+        if c == '\t' || c == '\n' || c == '\r' {
+            continue
+        }
         switch mode {
         case normal:
             switch c {
@@ -384,6 +584,8 @@ func (*CCondSqlSplice) parse(sql string, fn func(*data) string) string {
                 mode = bigBrackets
                 startIndex = i
                 curIndex += 1
+            case '<':
+                mode = angleBrackets
             default:
                 buf.WriteRune(c)
             }
@@ -392,20 +594,64 @@ func (*CCondSqlSplice) parse(sql string, fn func(*data) string) string {
             case '}':
                 switch innerMode {
                 case innerModeKV:
-                    buf.WriteString(fn(&data{
+                    var splitValue *string
+                    var isGroupFirst bool
+                    if len(ad.splitIndexGroup) > 0 {
+                        if groupNo, ok1 := ad.splitIndexGroup[curIndex]; ok1 {
+                            if v, ok2 := ad.splitGroup[groupNo]; ok2 {
+                                if !v.is {
+                                    ad.splitGroup[groupNo] = split{
+                                        is: true,
+                                        value: v.value,
+                                    }
+                                    isGroupFirst = true
+                                } else {
+                                    isGroupFirst = false
+                                }
+                                splitValue = &v.value
+                            } else {
+                            }
+                        } else {
+                        }
+                    }
+                    s, b := fn(&data{
                         curIndex: curIndex,
                         kIndex: kIndexTmp,
                         vIndex: vIndexTmp,
                         content: content.String(),
                         mode: repeat,
-                    }))
+                        splitValue: splitValue,
+                        isGroupFirst: isGroupFirst,
+                    })
+                    if groupNo, ok1 := ad.prefixIndexGroup[curIndex]; ok1 {
+                        if v, ok2 := ad.prefixGroup[groupNo]; ok2 {
+                            if !v.is && b {
+                                /*
+                                ** 缓存中不存在, 此次fn回调存在 => 追加拓展信息
+                                */
+                                buf.WriteString(v.value)
+                                ad.prefixGroup[groupNo] = prefix{
+                                    is: true,
+                                    value: v.value,
+                                }
+                            }
+                        } else {
+                        }
+                    } else {
+                        /*
+                        ** 当前索引不存在<>中, 不需要添加extra
+                        */
+                    }
+                    buf.WriteString(s)
                 case innerModeDollar:
-                    buf.WriteString(fn(&data{
+                    s, _ := fn(&data{
                         curIndex: curIndex,
+                        kIndex: kIndexTmp,
                         vIndex: vIndexTmp,
                         content: content.String(),
                         mode: single,
-                    }))
+                    })
+                    buf.WriteString(s)
                 default:
                 }
                 mode = normal
@@ -438,6 +684,19 @@ func (*CCondSqlSplice) parse(sql string, fn func(*data) string) string {
                         vIndexTmp = i - startIndex - keyword_va_len
                     }
                 }
+            }
+        case angleBrackets:
+            switch c {
+            case '>':
+                mode = normal
+                midIndex = 0
+                am = angleModeNormal
+                word.Reset()
+                ad.prefixIndex += 1
+                ad.splitIndex += 1
+                al.clear()
+            default:
+                self.angleParse(c, &am, &midClassify, &midIndex, &word, &ad, &al)
             }
         }
     }

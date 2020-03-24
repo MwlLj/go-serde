@@ -18,6 +18,7 @@ type httpHeaderDeserdeStruct struct {
 }
 
 func TestHttpHeaderDeserde(t *testing.T) {
+    t.SkipNow()
     go func() {
         mux := http.NewServeMux()
         mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {

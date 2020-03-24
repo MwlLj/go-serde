@@ -58,11 +58,18 @@ func deserde(input kv, req *http.Request, output interface{}) error {
     for i := 0; i < fieldNum; i++ {
         field := value.Field(i)
         fieldType := valueType.Field(i)
-        var fieldName string
+        var (
+            fieldName string
+            typeName string
+        )
         fieldTag := fieldType.Tag
         fieldName = fieldTag.Get(tag_field)
         if fieldName == "" {
             fieldName = fieldType.Name
+        }
+        typeName = fieldTag.Get(tag_type)
+        if typeName == "" {
+            typeName = tag_type_json
         }
         /*
         ** 判断字段类型
@@ -123,12 +130,28 @@ func deserde(input kv, req *http.Request, output interface{}) error {
             case reflect.Struct:
                 v := input.get(&fieldName)
                 if v != "" {
-                    fieldPtrValue := reflect.New(fieldPtrType)
-                    fieldPtrValueElem := fieldPtrValue.Elem()
-                    fieldValue := reflect.New(fieldPtrType)
-                    json.Unmarshal([]byte(v), fieldValue.Interface())
-                    fieldPtrValueElem.Set(fieldValue.Elem())
-                    field.Set(fieldPtrValue)
+                    switch typeName {
+                    case tag_type_json:
+                        fieldPtrValue := reflect.New(fieldPtrType)
+                        fieldPtrValueElem := fieldPtrValue.Elem()
+                        fieldValue := reflect.New(fieldPtrType)
+                        json.Unmarshal([]byte(v), fieldValue.Interface())
+                        fieldPtrValueElem.Set(fieldValue.Elem())
+                        field.Set(fieldPtrValue)
+                    }
+                }
+            case reflect.Slice:
+                v := input.get(&fieldName)
+                if v != "" {
+                    switch typeName {
+                    case tag_type_json:
+                        fieldPtrValue := reflect.New(fieldPtrType)
+                        fieldPtrValueElem := fieldPtrValue.Elem()
+                        fieldValue := reflect.New(fieldPtrType)
+                        json.Unmarshal([]byte(v), fieldValue.Interface())
+                        fieldPtrValueElem.Set(fieldValue.Elem())
+                        field.Set(fieldPtrValue)
+                    }
                 }
             }
         default:
@@ -162,12 +185,27 @@ func deserde(input kv, req *http.Request, output interface{}) error {
                 }
             case reflect.Struct:
                 v := input.get(&fieldName)
-                fieldValue := reflect.New(field.Type())
-                json.Unmarshal([]byte(v), fieldValue.Interface())
-                field.Set(fieldValue.Elem())
+                if v != "" {
+                    switch typeName {
+                    case tag_type_json:
+                        fieldValue := reflect.New(field.Type())
+                        json.Unmarshal([]byte(v), fieldValue.Interface())
+                        field.Set(fieldValue.Elem())
+                    }
+                }
                 // tmp := field.Interface()
                 // json.Unmarshal([]byte(v), tmp)
                 // field.Set(reflect.ValueOf(tmp))
+            case reflect.Slice:
+                v := input.get(&fieldName)
+                if v != "" {
+                    switch typeName {
+                    case tag_type_json:
+                        fieldValue := reflect.New(field.Type())
+                        json.Unmarshal([]byte(v), fieldValue.Interface())
+                        field.Set(fieldValue.Elem())
+                    }
+                }
             }
         }
     }
