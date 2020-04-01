@@ -41,9 +41,12 @@ func (self *byTag) assignStruct(rows *sql.Rows, value reflect.Value, t reflect.T
     names := map[string]tagData{}
     for i := 0; i < num; i++ {
         tag := t.Field(i).Tag
-        f := tag.Get(tag_field)
+        f := tag.Get(tag_sqlcolfield)
         if f == "" {
-            continue
+			f = tag.Get(tag_field)
+			if f == "" {
+				continue
+			}
         }
         field := value.Field(i)
         var srcField *reflect.Value

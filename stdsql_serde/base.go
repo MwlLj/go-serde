@@ -12,6 +12,7 @@ var _ = fmt.Println
 
 const (
     tag_field string = "field"
+	tag_sqlcolfield string = "sqlcolfield"
     tag_type string = "type"
     tag_type_json string = "json"
 )
