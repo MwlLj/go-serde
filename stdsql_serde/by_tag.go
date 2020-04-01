@@ -193,9 +193,9 @@ func (self *byTag) assignStruct(rows *sql.Rows, value reflect.Value, t reflect.T
                             fieldPtrValue := reflect.New(fieldPtrType)
                             fieldPtrValueElem := fieldPtrValue.Elem()
 
-                            fieldValue := reflect.New(fieldPtrType)
-                            json.Unmarshal([]byte(va.String), fieldValue.Interface())
-                            fieldPtrValueElem.Set(fieldValue.Elem())
+                            fv := reflect.New(fieldPtrType)
+                            json.Unmarshal([]byte(va.String), fv.Interface())
+                            fieldPtrValueElem.Set(fv.Elem())
 
                             fieldValue.Elem().Set(fieldPtrValue)
                             field.Set(fieldValue.Elem())
