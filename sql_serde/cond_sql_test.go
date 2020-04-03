@@ -64,7 +64,8 @@ func TestCondSqlSpliceSerde(t *testing.T) {
     <[split] [0] [,]>
     <[prefix] [1-4] [ where]>
     <[split] [1-2, 4] [ and]>
-    update t_user_info{ k = v}{ a.k = v}{ k between v}{ and $v}{ k like '%v%'}{ limit $v}{ offset $v};
+    update
+	t_user_info{ k = v}{ a.k = v}{ k between v}{ and $v}{ k like '%v%'}{ limit $v}{ offset $v};
     `
     // sql := "update t_user_info<[0], set>{<,> k = v};"
     name := "jake"

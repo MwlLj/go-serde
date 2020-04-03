@@ -575,6 +575,7 @@ func (self *CCondSqlSplice) parse(sql string, fn func(*data) (string, bool)) str
     var innerMode InnerMode = innerModeNormal
     for i, c := range sql {
         if c == '\t' || c == '\n' || c == '\r' {
+			buf.WriteRune(c);
             continue
         }
         switch mode {
