@@ -92,6 +92,7 @@ func deserde(input kv, req *http.Request, output interface{}) error {
                     field.Set(fieldPtrValue)
                 }
             case reflect.Int:
+            case reflect.Int64:
                 v := input.get(&fieldName)
                 if v != "" {
                     fieldPtrValue := reflect.New(fieldPtrType)
@@ -163,6 +164,7 @@ func deserde(input kv, req *http.Request, output interface{}) error {
                 v := input.get(&fieldName)
                 field.SetString(v)
             case reflect.Int:
+            case reflect.Int64:
                 v := input.get(&fieldName)
                 if vi, err := strconv.ParseInt(v, 10, 64); err == nil {
                     field.SetInt(vi)
