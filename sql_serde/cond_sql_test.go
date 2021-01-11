@@ -20,6 +20,28 @@ type updateSqlObj struct {
     ElementName *string `field:"element_name" pos:"4" quota:"false"`
 }
 
+func TestCondSqlSpliceSerdeWithCB(t *testing.T) {
+    // t.SkipNow()
+    sql := "update t_user_info set name = name {,k=v} where name = name { and k = v};"
+    s := NewCondSqlSplice()
+	name := "Mike"
+	obj := updateSqlObj{
+		Name: &name,
+	}
+	res, err := s.SerdeWithCB(sql, &obj, func(tag *string) *string {
+		fmt.Println(*tag)
+		if *tag == "name" {
+			s := "xxx"
+			return &s
+		}
+		return nil
+	})
+	if err != nil {
+		return
+	}
+	fmt.Println(*res)
+}
+
 func TestCondSqlSpliceParse(t *testing.T) {
     t.SkipNow()
     sql := "update t_user_info set name = name {,k=v} where name = name {and k = v};"
@@ -54,7 +76,7 @@ func TestCondSqlAngleParse(t *testing.T) {
 }
 
 func TestCondSqlSpliceSerde(t *testing.T) {
-    // t.SkipNow()
+    t.SkipNow()
     // sql := "update t_user_info set name = name {, k = v} where name = name{ and a.k = v}{ and k between v}{ and $v}{ and k like '%v%'}{ limit $v }{ offset $v};"
     // sql := "update t_user_info set name = name {, k = v} where name = name{ and a.k = v} and creatTime > { $v} and creatTime < { $v}{ limit $v }{ offset $v};"
     // sql := "select * from t_vss_vehicle_snapshot_record where 1 = 1{ and k = v}{} and creatTime > { $v} and creatTime < { $v}"

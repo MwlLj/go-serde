@@ -31,6 +31,8 @@ var (
     keyword_va_len int = len(keyword_va)
 )
 
+type ValueCallback func(fieldName *string) *string;
+
 type Mode int8
 const (
     _ Mode = iota
@@ -73,8 +75,12 @@ type CCondSqlSplice struct {
 }
 
 func (self *CCondSqlSplice) Serde(sql string, obj interface{}) (*string, error) {
+	return self.SerdeWithCB(sql, obj, nil)
+}
+
+func (self *CCondSqlSplice) SerdeWithCB(sql string, obj interface{}, cb ValueCallback) (*string, error) {
     maps := map[int]*map[string]*[]*fieldInfo{}
-    err := self.fields(obj, &maps)
+    err := self.fields(obj, &maps, cb)
     if err != nil {
         return nil, err
     }
@@ -183,7 +189,7 @@ func (self *CCondSqlSplice) Serde(sql string, obj interface{}) (*string, error) 
     return &r, nil
 }
 
-func (self *CCondSqlSplice) fields(obj interface{}, maps *map[int]*map[string]*[]*fieldInfo) error {
+func (self *CCondSqlSplice) fields(obj interface{}, maps *map[int]*map[string]*[]*fieldInfo, cb ValueCallback) error {
     var valueType reflect.Type
     value := reflect.ValueOf(obj)
     outType := reflect.TypeOf(obj)
@@ -200,9 +206,9 @@ func (self *CCondSqlSplice) fields(obj interface{}, maps *map[int]*map[string]*[
     */
     switch valueType.Kind() {
     case reflect.Struct:
-        self.obj2MapStrStrStructInner(value, valueType, maps)
+        self.obj2MapStrStrStructInner(value, valueType, maps, cb)
     case reflect.Interface:
-        self.obj2MapStrStrStructInner(value, valueType, maps)
+        self.obj2MapStrStrStructInner(value, valueType, maps, cb)
     case reflect.Map:
         // obj2MapStrStrMapInner(value, valueType)
     default:
@@ -317,7 +323,7 @@ func (self *CCondSqlSplice) getFieldValue(field reflect.Value, values *[]*fieldI
     }
 }
 
-func (self *CCondSqlSplice) obj2MapStrStrStructInner(value reflect.Value, valueType reflect.Type, maps *map[int]*map[string]*[]*fieldInfo) {
+func (self *CCondSqlSplice) obj2MapStrStrStructInner(value reflect.Value, valueType reflect.Type, maps *map[int]*map[string]*[]*fieldInfo, cb ValueCallback) {
     fieldNum := value.NumField()
     for i := 0; i < fieldNum; i++ {
         field := value.Field(i)
@@ -362,6 +368,12 @@ func (self *CCondSqlSplice) obj2MapStrStrStructInner(value reflect.Value, valueT
             */
             for _, v := range values {
                 fieldValue := v.value
+				if cb != nil {
+					v := cb(&fieldName)
+					if v != nil {
+						fieldValue = *v
+					}
+				}
                 isAddQuote := v.isAddQuote
                 if !isQuota {
                     isAddQuote = false
