@@ -259,6 +259,9 @@ func (self *CCondSqlSplice) getFieldValue(field reflect.Value, values *[]*fieldI
         case reflect.Int:
             i := fieldElem.Int()
             fieldValue = strconv.FormatInt(i, 10)
+		case reflect.Int64:
+            i := fieldElem.Int()
+            fieldValue = strconv.FormatInt(i, 10)
         case reflect.Bool:
             b := fieldElem.Bool()
             fieldValue = strconv.FormatBool(b)
@@ -279,6 +282,9 @@ func (self *CCondSqlSplice) getFieldValue(field reflect.Value, values *[]*fieldI
             fieldValue = field.String()
             isAddQuote = true
         case reflect.Int:
+            i := field.Int()
+            fieldValue = strconv.FormatInt(i, 10)
+		case reflect.Int64:
             i := field.Int()
             fieldValue = strconv.FormatInt(i, 10)
         case reflect.Bool:

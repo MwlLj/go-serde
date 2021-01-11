@@ -48,6 +48,8 @@ func obj2MapStrStrStructInner(value reflect.Value, valueType reflect.Type, maps 
             case reflect.String:
                 fieldValue = fieldElem.String()
             case reflect.Int:
+                i := fieldElem.Int()
+                fieldValue = strconv.FormatInt(i, 10)
 			case reflect.Int64:
                 i := fieldElem.Int()
                 fieldValue = strconv.FormatInt(i, 10)
@@ -63,6 +65,9 @@ func obj2MapStrStrStructInner(value reflect.Value, valueType reflect.Type, maps 
             case reflect.String:
                 fieldValue = field.String()
             case reflect.Int:
+                i := field.Int()
+                fieldValue = strconv.FormatInt(i, 10)
+            case reflect.Int64:
                 i := field.Int()
                 fieldValue = strconv.FormatInt(i, 10)
             case reflect.Bool:
@@ -88,6 +93,8 @@ func calcFieldValue(field reflect.Value, fieldValue *string) {
         case reflect.String:
             *fieldValue = fieldElem.String()
         case reflect.Int:
+            i := fieldElem.Int()
+            *fieldValue = strconv.FormatInt(i, 10)
         case reflect.Int64:
             i := fieldElem.Int()
             *fieldValue = strconv.FormatInt(i, 10)
@@ -105,6 +112,8 @@ func calcFieldValue(field reflect.Value, fieldValue *string) {
         case reflect.String:
             *fieldValue = field.String()
         case reflect.Int:
+            i := field.Int()
+            *fieldValue = strconv.FormatInt(i, 10)
         case reflect.Int64:
             i := field.Int()
             *fieldValue = strconv.FormatInt(i, 10)
